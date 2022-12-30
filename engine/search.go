@@ -20,7 +20,6 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 	for _, move := range moves {
 		nodes++
 		unapply := e.board.Apply(move)
-		// e.Print("alpha = %v, beta = %v", wtm*mateVal, wtm*-mateVal)
 		score := e.AlphaBeta(mateVal, -mateVal, params.Depth)
 		if score >= maxScore {
 			e.Print("move %s score %v", move.String(), score)
@@ -99,7 +98,7 @@ func (e *Engine) Quiesce(alpha, beta int16) int16 {
 		}
 	}
 
-	return score
+	return alpha
 }
 
 // Sort moves using heuristics, e.g. search captures and promotions before other moves.
