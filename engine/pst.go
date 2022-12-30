@@ -205,7 +205,7 @@ func Flip(square uint8) uint8 {
 
 // At gets the color and piece of a square. Returns 2 if the square is empty.
 // TODO: This is needlessly slow and complicated. Maintain a square-centric board.
-func At(board *dragontoothmg.Board, square uint8) (Color, dragontoothmg.Piece) {
+func At(board *dragontoothmg.Board, square uint8) (Color, int) {
 	if contains(board.White.All, square) {
 		switch {
 		case contains(board.White.Pawns, square):

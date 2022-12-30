@@ -82,6 +82,7 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 }
 
 func (e *Engine) Quiesce(alpha, beta int16) int16 {
+	nodes++
 	score := Eval(e.board)
 	if score >= beta {
 		return beta

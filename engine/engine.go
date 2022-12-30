@@ -14,7 +14,7 @@ const (
 	author  = "Noah Klein"
 	version = "1.0"
 
-	depth = 5
+	depth = 4
 )
 
 type Engine struct {
