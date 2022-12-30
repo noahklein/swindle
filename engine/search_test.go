@@ -25,7 +25,7 @@ func TestOccupied(t *testing.T) {
 		{63, true},
 	}
 	for _, tt := range tests {
-		if got := engine.Occupied(board, tt.square); got != tt.want {
+		if got := engine.Occupied(&board, tt.square); got != tt.want {
 			t.Errorf("Occupied(%v) = %v, want %v", tt.square, got, tt.want)
 			t.Logf("%64b", uint64(1)<<tt.square)
 			t.Logf("%b", board.White.All|board.Black.All)

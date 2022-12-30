@@ -18,9 +18,13 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 	maxScore := mateVal
 	var bestMove dragontoothmg.Move
 	for _, move := range moves {
+		if ctx.Err() != nil {
+			break
+		}
+
 		nodes++
 		unapply := e.board.Apply(move)
-		score := e.AlphaBeta(mateVal, -mateVal, params.Depth)
+		score := -e.AlphaBeta(mateVal, -mateVal, params.Depth)
 		if score >= maxScore {
 			e.Print("move %s score %v", move.String(), score)
 			maxScore = score
@@ -45,13 +49,19 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 // you only need one refutation to a move to know it's bad.
 func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 	nodes++
-	wToMove := whiteToMove(e.board)
 	moves := e.sortMoves(e.board.GenerateLegalMoves())
+
 	// Checkmate
-	if len(moves) == 0 {
-		return wToMove * mateVal
+	if len(moves) == 0 && e.board.OurKingInCheck() {
+		return whiteToMove(e.board) * mateVal
 	}
+	// Draw
+	if len(moves) == 0 {
+		return 0
+	}
+
 	if depth == 0 {
+		// return Eval(e.board)
 		return e.Quiesce(alpha, beta)
 	}
 
@@ -120,11 +130,15 @@ func (e *Engine) sortMoves(moves []dragontoothmg.Move) []dragontoothmg.Move {
 }
 
 // Occupied checks if a square is occupied.
-func Occupied(board dragontoothmg.Board, square uint8) bool {
+func Occupied(board *dragontoothmg.Board, square uint8) bool {
 	return (board.Black.All|board.White.All)&uint64(1<<square) >= 1
 }
 
-func whiteToMove(board dragontoothmg.Board) int16 {
+func contains(bitset uint64, square uint8) bool {
+	return bitset&(1<<square) >= 1
+}
+
+func whiteToMove(board *dragontoothmg.Board) int16 {
 	if board.Wtomove {
 		return 1
 	}

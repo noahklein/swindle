@@ -13,10 +13,12 @@ const (
 	name    = "Cheese"
 	author  = "Noah Klein"
 	version = "1.0"
+
+	depth = 5
 )
 
 type Engine struct {
-	board  dragontoothmg.Board
+	board  *dragontoothmg.Board
 	cancel func()
 }
 
@@ -25,12 +27,14 @@ func (e *Engine) About() (string, string, string) {
 }
 
 func (e *Engine) NewGame() {
-	e.board = dragontoothmg.ParseFen(dragontoothmg.Startpos)
+	board := dragontoothmg.ParseFen(dragontoothmg.Startpos)
+	e.board = &board
 	e.cancel = func() {}
 }
 
 func (e *Engine) Position(fen string, moves []string) {
-	e.board = dragontoothmg.ParseFen(fen)
+	board := dragontoothmg.ParseFen(fen)
+	e.board = &board
 	for _, move := range moves {
 		m, err := dragontoothmg.ParseMove(move)
 		if err != nil {
@@ -43,9 +47,10 @@ func (e *Engine) Position(fen string, moves []string) {
 func (e *Engine) Go(info uci.SearchParams) uci.SearchResults {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	e.cancel = cancel
 
 	if info.Depth == 0 {
-		info.Depth = 5
+		info.Depth = depth
 	}
 
 	return e.Search(ctx, info)
