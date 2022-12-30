@@ -17,13 +17,9 @@ const (
 )
 
 func Eval(board *dragontoothmg.Board) int16 {
-	score := pieceEval(board.White) - pieceEval(board.Black)
+	score := pieceEval(&board.White) - pieceEval(&board.Black)
 
-	// TODO: improve endgame detection.
-	gamePhase := MiddleGame
-	if bits.OnesCount64(board.Black.All|board.White.All) < 12 {
-		gamePhase = EndGame
-	}
+	phase := gamePhase(board)
 
 	// Give bonus points for piece positions.
 	for square := uint8(0); square < 64; square++ {
@@ -33,7 +29,7 @@ func Eval(board *dragontoothmg.Board) int16 {
 		}
 
 		posBonus := midGameTable[pieceColor(int(piece), color)][square]
-		if gamePhase == EndGame {
+		if phase == EndGame {
 			posBonus = endGameTable[pieceColor(int(piece), color)][square]
 		}
 
@@ -47,12 +43,26 @@ func Eval(board *dragontoothmg.Board) int16 {
 	return whiteToMove(board) * score
 }
 
-func pieceEval(b dragontoothmg.Bitboards) int16 {
+func pieceEval(b *dragontoothmg.Bitboards) int16 {
 	score := bits.OnesCount64(b.Pawns)*pawnVal +
 		bits.OnesCount64(b.Knights)*knightVal +
 		bits.OnesCount64(b.Bishops)*bishopVal +
 		bits.OnesCount64(b.Rooks)*rookVal +
 		bits.OnesCount64(b.Queens)*queenVal
 	return int16(score)
+}
 
+func pieceCount(b *dragontoothmg.Bitboards) int {
+	return bits.OnesCount64(b.Knights) +
+		bits.OnesCount64(b.Bishops) +
+		bits.OnesCount64(b.Rooks) +
+		bits.OnesCount64(b.Queens)
+}
+
+// TODO: improve endgame detection.
+func gamePhase(b *dragontoothmg.Board) GamePhase {
+	if pieceCount(&b.White)+pieceCount(&b.Black) < 7 {
+		return EndGame
+	}
+	return MiddleGame
 }

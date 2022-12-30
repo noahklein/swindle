@@ -15,6 +15,12 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 
 	moves := e.board.GenerateLegalMoves()
 
+	// Increase depth in endgame.
+	phase := gamePhase(e.board)
+	if phase == EndGame {
+		params.Depth += 1
+	}
+
 	maxScore := mateVal
 	var bestMove dragontoothmg.Move
 	for _, move := range moves {
@@ -46,14 +52,15 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 //     Beta is the highest score the minimizing player can force.
 // It stops evaluating a move when at least one possibility has been found that
 // proves the move to be worse than a previously examined move. In other words,
-// you only need one refutation to a move to know it's bad.
+// you only need one refutation to know a move is bad.
 func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 	nodes++
 	moves := e.sortMoves(e.board.GenerateLegalMoves())
 
 	// Checkmate
 	if len(moves) == 0 && e.board.OurKingInCheck() {
-		return whiteToMove(e.board) * mateVal
+		// return whiteToMove(e.board) * mateVal
+		return mateVal
 	}
 	// Draw
 	if len(moves) == 0 {
