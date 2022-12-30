@@ -38,6 +38,12 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 	}
 }
 
+// AlphaBeta improves upon the minimax algorithm.
+//     Alpha is the lowest score the maximizing player can force
+//     Beta is the highest score the minimizing player can force.
+// It stops evaluating a move when at least one possibility has been found that
+// proves the move to be worse than a previously examined move. In other words,
+// you only need one refutation to a move to know it's bad.
 func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 	nodes++
 	wToMove := whiteToMove(e.board)
@@ -96,6 +102,8 @@ func (e *Engine) Quiesce(alpha, beta int16) int16 {
 	return score
 }
 
+// Sort moves using heuristics, e.g. search captures and promotions before other moves.
+// Searching better moves first helps us prune nodes with beta cutoffs.
 func (e *Engine) sortMoves(moves []dragontoothmg.Move) []dragontoothmg.Move {
 	var (
 		captures, others []dragontoothmg.Move

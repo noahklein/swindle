@@ -9,13 +9,19 @@ import (
 	"github.com/noahklein/chess/uci"
 )
 
+const (
+	name    = "Cheese"
+	author  = "Noah Klein"
+	version = "1.0"
+)
+
 type Engine struct {
 	board  dragontoothmg.Board
 	cancel func()
 }
 
 func (e *Engine) About() (string, string, string) {
-	return "Cheese", "Noah Klein", "1.0"
+	return name, author, version
 }
 
 func (e *Engine) NewGame() {

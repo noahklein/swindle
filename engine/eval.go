@@ -17,8 +17,7 @@ const (
 )
 
 func Eval(board dragontoothmg.Board) int16 {
-	wtm := whiteToMove(board)
-	return wtm * (pieceEval(board.White) - pieceEval(board.Black))
+	return whiteToMove(board) * (pieceEval(board.White) - pieceEval(board.Black))
 }
 
 func pieceEval(b dragontoothmg.Bitboards) int16 {
