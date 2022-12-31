@@ -59,7 +59,6 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 
 	// Checkmate
 	if len(moves) == 0 && e.board.OurKingInCheck() {
-		// return whiteToMove(e.board) * mateVal
 		return mateVal
 	}
 	// Draw
@@ -98,7 +97,8 @@ func (e *Engine) Quiesce(alpha, beta int16) int16 {
 		alpha = score
 	}
 
-	for _, move := range e.board.GenerateLegalMoves() {
+	moves := e.board.GenerateLegalMoves()
+	for _, move := range moves {
 		// Skip non-captures.
 		if !Occupied(e.board, move.To()) {
 			continue

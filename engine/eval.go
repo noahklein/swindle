@@ -18,6 +18,7 @@ const (
 
 func Eval(board *dragontoothmg.Board) int16 {
 	score := pieceEval(&board.White) - pieceEval(&board.Black)
+	// var score int16
 
 	phase := gamePhase(board)
 
@@ -28,9 +29,9 @@ func Eval(board *dragontoothmg.Board) int16 {
 			continue
 		}
 
-		posBonus := midGameTable[pieceColor(int(piece), color)][square]
+		posBonus := MidGameTable[pieceColor(int(piece), color)][square]
 		if phase == EndGame {
-			posBonus = endGameTable[pieceColor(int(piece), color)][square]
+			posBonus = EndGameTable[pieceColor(int(piece), color)][square]
 		}
 
 		if color == White {

@@ -159,8 +159,8 @@ const (
 // wN = 2, bN = 3
 // ...
 var (
-	midGameTable = [12][64]int16{}
-	endGameTable = [12][64]int16{}
+	MidGameTable = [12][64]int16{}
+	EndGameTable = [12][64]int16{}
 )
 
 func initPieceSquare() {
@@ -181,17 +181,16 @@ func initPieceSquare() {
 		EGKingTable,
 	}
 
-	var pc int
 	for piece := dragontoothmg.Pawn; piece <= dragontoothmg.King; piece++ {
 		for sq := uint8(0); sq < 64; sq++ {
+			pc := pieceColor(piece, White)
 			// White
-			midGameTable[piece-1][sq] = mgTable[piece-1][sq]
-			endGameTable[piece-1][sq] = egTable[piece-1][sq]
+			MidGameTable[pc][sq] = mgTable[piece-1][Flip(sq)]
+			EndGameTable[pc][sq] = egTable[piece-1][Flip(sq)]
 			// Black
-			midGameTable[piece][sq] = mgTable[piece-1][Flip(sq)]
-			endGameTable[piece][sq] = egTable[piece-1][Flip(sq)]
+			MidGameTable[pc+1][sq] = mgTable[piece-1][sq]
+			EndGameTable[pc+1][sq] = egTable[piece-1][sq]
 		}
-		pc++
 	}
 }
 
