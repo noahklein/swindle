@@ -33,24 +33,33 @@ func TestValues(t *testing.T) {
 	}{
 		{
 			square: 8, // a2
-			piece:  dragontoothmg.Pawn,
-			color:  White,
-			wantMG: -35,
-			wantEG: 13,
+			color:  White, piece: dragontoothmg.Pawn,
+			wantMG: -35, wantEG: 13,
 		},
 		{
 			square: 8, // a2
-			piece:  dragontoothmg.Pawn,
-			color:  Black,
-			wantMG: 98,
-			wantEG: 178,
+			color:  Black, piece: dragontoothmg.Pawn,
+			wantMG: 98, wantEG: 178,
 		},
 		{
 			square: 18, // c3
-			piece:  dragontoothmg.Knight,
-			color:  White,
-			wantMG: 12,
-			wantEG: -1,
+			color:  White, piece: dragontoothmg.Knight,
+			wantMG: 12, wantEG: -1,
+		},
+		{
+			square: 18, // c3
+			color:  Black, piece: dragontoothmg.Knight,
+			wantMG: 37, wantEG: 10,
+		},
+		{
+			square: 9, // b2
+			color:  White, piece: dragontoothmg.Bishop,
+			wantMG: 15, wantEG: -18,
+		},
+		{
+			square: 9, // b2
+			color:  Black, piece: dragontoothmg.Bishop,
+			wantMG: 16, wantEG: -4,
 		},
 	}
 
