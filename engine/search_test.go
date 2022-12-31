@@ -51,7 +51,7 @@ func TestForcedDraw(t *testing.T) {
 		want  string
 	}{
 		// Black has mate in 2, white to play and draw.
-		{"5r1k/8/6Q1/8/1b6/2n5/1q6/7K w - - 0 1", 3, "g6h6"},
+		{"5r1k/8/6Q1/8/1b6/2n5/1q6/7K w - - 0 1", 5, "g6h6"},
 	}
 
 	for _, tt := range tests {
@@ -68,9 +68,9 @@ func TestForcedDraw(t *testing.T) {
 			}
 
 			// TODO: fix draw evaluation.
-			// if results.Score != 0 {
-			// 	t.Errorf("Bad draw eval: got %v, want 0", results.Score)
-			// }
+			if results.Score != 0 {
+				t.Errorf("Bad draw eval: got %v, want 0", results.Score)
+			}
 		})
 	}
 

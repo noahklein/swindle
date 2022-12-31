@@ -14,11 +14,13 @@ const (
 	author  = "Noah Klein"
 	version = "1.0"
 
-	depth = 4
+	depth = 5
 )
 
 type Engine struct {
+	killer *Killer
 	board  *dragontoothmg.Board
+	ply    int
 	cancel func()
 }
 
@@ -28,6 +30,7 @@ func (e *Engine) About() (string, string, string) {
 
 func (e *Engine) NewGame() {
 	board := dragontoothmg.ParseFen(dragontoothmg.Startpos)
+	e.killer = NewKiller()
 	e.board = &board
 	e.cancel = func() {}
 }
@@ -40,7 +43,7 @@ func (e *Engine) Position(fen string, moves []string) {
 		if err != nil {
 			log.Fatalf("Could not parse move %v: %v", move, err)
 		}
-		e.board.Apply(m)
+		e.Move(m)
 	}
 }
 
@@ -54,6 +57,16 @@ func (e *Engine) Go(info uci.SearchParams) uci.SearchResults {
 	}
 
 	return e.Search(ctx, info)
+}
+
+func (e *Engine) Move(m dragontoothmg.Move) func() {
+	unapply := e.board.Apply(m)
+	e.ply++
+
+	return func() {
+		unapply()
+		e.ply--
+	}
 }
 
 func (e *Engine) Stop() {

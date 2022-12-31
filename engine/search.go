@@ -13,35 +13,54 @@ var nodes int
 func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.SearchResults {
 	nodes = 0 // reset node count.
 
-	moves := e.board.GenerateLegalMoves()
-
 	// Increase depth in endgame.
 	phase := gamePhase(e.board)
 	if phase == EndGame {
 		params.Depth += 1
 	}
 
-	maxScore := mateVal
+	moves := e.board.GenerateLegalMoves()
+	bestScore := mateVal
 	var bestMove dragontoothmg.Move
-	for _, move := range moves {
-		if ctx.Err() != nil {
-			break
+
+	alpha, beta := mateVal, -mateVal
+
+	// Iterative deepening with aspirational window. After each iteration we use the eval
+	// as the center of the alpha-beta window, and search again one ply deeper. If the eval
+	// falls outside of the window, we re-search on the same depth with a wider window.
+	for depth := 0; depth <= params.Depth; {
+		for _, move := range moves {
+			if ctx.Err() != nil {
+				break
+			}
+
+			nodes++
+			unmove := e.Move(move)
+			score := -e.AlphaBeta(-beta, -alpha, depth)
+			unmove()
+
+			if score >= bestScore {
+				e.Print("move %s: %v", move.String(), score)
+				bestScore = score
+				bestMove = move
+			}
 		}
 
-		nodes++
-		unapply := e.board.Apply(move)
-		score := -e.AlphaBeta(mateVal, -mateVal, params.Depth)
-		if score >= maxScore {
-			e.Print("move %s score %v", move.String(), score)
-			maxScore = score
-			bestMove = move
+		if bestScore < alpha || bestScore > beta {
+			e.Print("Eval was outside of aspirational window. Re-search at same depth, %v.", depth)
+			alpha = -mateVal
+			beta = mateVal
+			continue
 		}
-		unapply()
+		alpha = bestScore - pawnVal/4
+		beta = bestScore + pawnVal/4
+		depth++
+		e.Print("Eval was inside aspirational window! New window: %v, %v.", alpha, beta)
 	}
 
 	return uci.SearchResults{
 		BestMove: bestMove.String(),
-		Score:    maxScore / 100,
+		Score:    bestScore / 100,
 		Nodes:    nodes,
 		Depth:    params.Depth,
 	}
@@ -55,7 +74,7 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 // you only need one refutation to know a move is bad.
 func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 	nodes++
-	moves := e.sortMoves(e.board.GenerateLegalMoves())
+	moves := e.board.GenerateLegalMoves()
 
 	// Checkmate
 	if len(moves) == 0 && e.board.OurKingInCheck() {
@@ -63,6 +82,7 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 	}
 	// Draw
 	if len(moves) == 0 {
+		// fmt.Println("alphabeta draw hit")
 		return 0
 	}
 
@@ -71,12 +91,14 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 		return e.Quiesce(alpha, beta)
 	}
 
-	for _, move := range moves {
-		unapply := e.board.Apply(move)
+	for _, move := range e.sortMoves(moves) {
+		unmove := e.Move(move)
 		score := -e.AlphaBeta(-beta, -alpha, depth-1)
-		unapply()
+		unmove()
 
+		// Beta-cutoff; better than the best move.
 		if score >= beta {
+			e.killer.Add(int(e.ply), move)
 			return beta
 		}
 		if score > alpha {
@@ -88,6 +110,14 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 }
 
 func (e *Engine) Quiesce(alpha, beta int16) int16 {
+	moves := e.board.GenerateLegalMoves()
+	if len(moves) == 0 && e.board.OurKingInCheck() {
+		return mateVal
+	} else if len(moves) == 0 {
+		// fmt.Println("quiescence draw hit")
+		return 0
+	}
+
 	nodes++
 	score := Eval(e.board)
 	if score >= beta {
@@ -97,18 +127,18 @@ func (e *Engine) Quiesce(alpha, beta int16) int16 {
 		alpha = score
 	}
 
-	moves := e.board.GenerateLegalMoves()
 	for _, move := range moves {
 		// Skip non-captures.
 		if !Occupied(e.board, move.To()) {
 			continue
 		}
 
-		unapply := e.board.Apply(move)
+		unmove := e.Move(move)
 		score := -e.Quiesce(-beta, -alpha)
-		unapply()
+		unmove()
 
 		if score >= beta {
+			e.killer.Add(e.ply, move)
 			return beta
 		}
 		if score > alpha {
@@ -123,23 +153,40 @@ func (e *Engine) Quiesce(alpha, beta int16) int16 {
 // Searching better moves first helps us prune nodes with beta cutoffs.
 func (e *Engine) sortMoves(moves []dragontoothmg.Move) []dragontoothmg.Move {
 	var (
-		captures, others []dragontoothmg.Move
+		killers, checks, captures, others []dragontoothmg.Move
 	)
 
+	kms := e.killer.Get(e.ply)
+
 	for _, move := range moves {
-		if Occupied(e.board, move.To()) {
+		// The zero-value for moves is a1a1, an impossible move.
+		if move == kms[0] || move == kms[1] {
+			killers = append(killers, move)
+		}
+		if IsCheck(e.board, move) {
+			checks = append(checks, move)
+
+		} else if Occupied(e.board, move.To()) {
 			captures = append(captures, move)
 		} else {
 			others = append(others, move)
 		}
 	}
 
-	return append(captures, others...)
+	out := append(killers, checks...)
+	out = append(out, captures...)
+	return append(out, others...)
 }
 
 // Occupied checks if a square is occupied.
 func Occupied(board *dragontoothmg.Board, square uint8) bool {
 	return (board.Black.All|board.White.All)&uint64(1<<square) >= 1
+}
+
+func IsCheck(board *dragontoothmg.Board, move dragontoothmg.Move) bool {
+	unapply := board.Apply(move)
+	defer unapply()
+	return board.OurKingInCheck()
 }
 
 func contains(bitset uint64, square uint8) bool {
