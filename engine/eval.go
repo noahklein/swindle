@@ -1,19 +1,17 @@
 package engine
 
 import (
-	"math"
 	"math/bits"
 
 	"github.com/dylhunn/dragontoothmg"
 )
 
 const (
-	mateVal   int16 = math.MinInt16 / 2
-	pawnVal         = 100
-	knightVal       = 320
-	bishopVal       = 330
-	rookVal         = 500
-	queenVal        = 900
+	pawnVal   = 101
+	knightVal = 320
+	bishopVal = 330
+	rookVal   = 500
+	queenVal  = 900
 )
 
 func Eval(board *dragontoothmg.Board) int16 {

@@ -2,12 +2,19 @@ package engine
 
 import (
 	"context"
+	"sort"
 
 	"github.com/dylhunn/dragontoothmg"
 	"github.com/noahklein/chess/uci"
 )
 
 var nodes int
+
+const (
+	mateVal      int16 = -15000
+	initialAlpha int16 = -20000
+	initialBeta  int16 = 20000
+)
 
 // Root search.
 func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.SearchResults {
@@ -20,15 +27,15 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 	}
 
 	moves := e.board.GenerateLegalMoves()
-	bestScore := mateVal - 10
+	bestScore := initialAlpha
 	var bestMove dragontoothmg.Move
 
-	alpha, beta := mateVal, -mateVal
+	alpha, beta := initialAlpha, initialBeta
 
-	// Iterative deepening with aspirational window. After each iteration we use the eval
+	// Iterative deepening with aspiration window. After each iteration we use the eval
 	// as the center of the alpha-beta window, and search again one ply deeper. If the eval
 	// falls outside of the window, we re-search on the same depth with a wider window.
-	for depth := 1; depth <= params.Depth; depth++ {
+	for depth := 1; depth <= params.Depth; {
 		for _, move := range moves {
 			if ctx.Err() != nil {
 				break
@@ -46,16 +53,16 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 			}
 		}
 
-		// if bestScore <= alpha || bestScore >= beta {
-		// 	e.Print("Eval was outside of aspirational window. Re-search at same depth, %v.", depth)
-		// 	alpha = -mateVal
-		// 	beta = mateVal
-		// 	continue
-		// }
-		// alpha = bestScore - pawnVal/4
-		// beta = bestScore + pawnVal/4
-		// depth++
-		// e.Print("Eval was inside aspirational window! New window: %v, %v.", alpha, beta)
+		if bestScore <= alpha || bestScore >= beta {
+			e.Print("Eval was outside of aspirational window. Re-search at same depth, %v.", depth)
+			alpha = initialAlpha
+			beta = initialBeta
+			continue
+		}
+		alpha = bestScore - pawnVal/2
+		beta = bestScore + pawnVal/2
+		depth++
+		e.Print("Eval was inside aspirational window! New window: %v, %v.", alpha, beta)
 	}
 
 	return uci.SearchResults{
@@ -98,7 +105,7 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 		var score int16
 		if foundPV {
 			// Search tiny window.
-			score = -e.AlphaBeta(-alpha-pawnVal, -alpha, depth-1)
+			score = -e.AlphaBeta(-alpha-1, -alpha, depth-1)
 			// If we failed, search again with normal window.
 			if score > alpha && score < beta {
 				score = -e.AlphaBeta(-beta, -alpha, depth-1)
@@ -181,13 +188,21 @@ func (e *Engine) sortMoves(moves []dragontoothmg.Move) []dragontoothmg.Move {
 		}
 		if IsCheck(e.board, move) {
 			checks = append(checks, move)
-
 		} else if Occupied(e.board, move.To()) {
 			captures = append(captures, move)
 		} else {
 			others = append(others, move)
 		}
 	}
+
+	// Most-Valuable Victim/Least-Valuable attacker. Search PxQ, before QxP.
+	sort.Slice(captures, func(i, j int) bool {
+		_, f1 := At(e.board, captures[i].From())
+		_, f2 := At(e.board, captures[j].From())
+		_, t1 := At(e.board, captures[i].To())
+		_, t2 := At(e.board, captures[j].To())
+		return t1-f1 > t2-f2
+	})
 
 	out := append(killers, checks...)
 	out = append(out, captures...)
