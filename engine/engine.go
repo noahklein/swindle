@@ -17,11 +17,14 @@ const (
 	depth = 5
 )
 
+// The chess engine. Must call NewGame() to initialize, followed by Position().
 type Engine struct {
 	killer *Killer
 	board  *dragontoothmg.Board
 	ply    int
 	cancel func()
+
+	debug bool // Enables logs/metrics.
 }
 
 func (e *Engine) About() (string, string, string) {
@@ -32,7 +35,9 @@ func (e *Engine) NewGame() {
 	board := dragontoothmg.ParseFen(dragontoothmg.Startpos)
 	e.killer = NewKiller()
 	e.board = &board
+	e.ply = 1
 	e.cancel = func() {}
+	e.debug = true
 }
 
 func (e *Engine) Position(fen string, moves []string) {
@@ -80,10 +85,13 @@ func (e *Engine) SetOption(option string, value string) {
 	// TODO: Implement.
 }
 
+// Debug enables logging and metric reporting.
 func (e *Engine) Debug(isOn bool) {
-	// TODO: Implement
+	e.debug = isOn
 }
 
 func (e *Engine) Print(s string, a ...any) {
-	fmt.Printf("info string "+s+"\n", a...)
+	if e.debug {
+		fmt.Printf("info string "+s+"\n", a...)
+	}
 }

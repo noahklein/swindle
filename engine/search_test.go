@@ -12,21 +12,36 @@ import (
 
 func TestMate(t *testing.T) {
 	tests := []struct {
+		name  string
 		fen   string
 		depth int
 		want  string
 	}{
 		// Mate in 2
-		{"r2qkb1r/pp2nppp/3p4/2pNN1B1/2BnP3/3P4/PPP2PPP/R2bK2R w KQkq - 1 0", 2, "d5f6"},
-		{"6k1/pp4p1/2p5/2bp4/8/P5Pb/1P3rrP/2BRRN1K b - - 0 1", 2, "g2g1"},
+		{
+			name:  "mate in 2, w",
+			fen:   "r2qkb1r/pp2nppp/3p4/2pNN1B1/2BnP3/3P4/PPP2PPP/R2bK2R w KQkq - 1 0",
+			depth: 2, want: "d5f6",
+		},
+		{
+			name:  "mate in 2, b",
+			fen:   "6k1/pp4p1/2p5/2bp4/8/P5Pb/1P3rrP/2BRRN1K b - - 0 1",
+			depth: 2, want: "g2g1",
+		},
 		// Mate in 3
-		{"r1b1kb1r/pppp1ppp/5q2/4n3/3KP3/2N3PN/PPP4P/R1BQ1B1R b kq - 0 1", 4, "f8c5"},
+		{
+			name:  "mate in 3, b",
+			fen:   "r1b1kb1r/pppp1ppp/5q2/4n3/3KP3/2N3PN/PPP4P/R1BQ1B1R b kq - 0 1",
+			depth: 4, want: "f8c5",
+		},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.fen, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			var e engine.Engine
+			e.NewGame()
 			e.Position(tt.fen, nil)
+			// e.Debug(false)
 
 			results := e.Search(context.Background(), uci.SearchParams{
 				Depth: tt.depth,
@@ -55,9 +70,11 @@ func TestForcedDraw(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.fen, func(t *testing.T) {
+		t.Run(tt.want, func(t *testing.T) {
 			var e engine.Engine
+			e.NewGame()
 			e.Position(tt.fen, nil)
+			e.Debug(false)
 
 			results := e.Search(context.Background(), uci.SearchParams{
 				Depth: tt.depth,

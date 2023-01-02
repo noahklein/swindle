@@ -20,7 +20,7 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 	}
 
 	moves := e.board.GenerateLegalMoves()
-	bestScore := mateVal
+	bestScore := mateVal - 10
 	var bestMove dragontoothmg.Move
 
 	alpha, beta := mateVal, -mateVal
@@ -28,7 +28,7 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 	// Iterative deepening with aspirational window. After each iteration we use the eval
 	// as the center of the alpha-beta window, and search again one ply deeper. If the eval
 	// falls outside of the window, we re-search on the same depth with a wider window.
-	for depth := 0; depth <= params.Depth; {
+	for depth := 1; depth <= params.Depth; depth++ {
 		for _, move := range moves {
 			if ctx.Err() != nil {
 				break
@@ -40,22 +40,22 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 			unmove()
 
 			if score >= bestScore {
-				e.Print("move %s: %v", move.String(), score)
+				e.Print("move %s: %v; d=%v", move.String(), score, depth)
 				bestScore = score
 				bestMove = move
 			}
 		}
 
-		if bestScore < alpha || bestScore > beta {
-			e.Print("Eval was outside of aspirational window. Re-search at same depth, %v.", depth)
-			alpha = -mateVal
-			beta = mateVal
-			continue
-		}
-		alpha = bestScore - pawnVal/4
-		beta = bestScore + pawnVal/4
-		depth++
-		e.Print("Eval was inside aspirational window! New window: %v, %v.", alpha, beta)
+		// if bestScore <= alpha || bestScore >= beta {
+		// 	e.Print("Eval was outside of aspirational window. Re-search at same depth, %v.", depth)
+		// 	alpha = -mateVal
+		// 	beta = mateVal
+		// 	continue
+		// }
+		// alpha = bestScore - pawnVal/4
+		// beta = bestScore + pawnVal/4
+		// depth++
+		// e.Print("Eval was inside aspirational window! New window: %v, %v.", alpha, beta)
 	}
 
 	return uci.SearchResults{
@@ -78,7 +78,7 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 
 	// Checkmate
 	if len(moves) == 0 && e.board.OurKingInCheck() {
-		return mateVal
+		return mateVal + int16(e.ply)
 	}
 	// Draw
 	if len(moves) == 0 {
@@ -91,9 +91,21 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 		return e.Quiesce(alpha, beta)
 	}
 
+	var foundPV bool
 	for _, move := range e.sortMoves(moves) {
 		unmove := e.Move(move)
-		score := -e.AlphaBeta(-beta, -alpha, depth-1)
+
+		var score int16
+		if foundPV {
+			// Search tiny window.
+			score = -e.AlphaBeta(-alpha-pawnVal, -alpha, depth-1)
+			// If we failed, search again with normal window.
+			if score > alpha && score < beta {
+				score = -e.AlphaBeta(-beta, -alpha, depth-1)
+			}
+		} else {
+			score = -e.AlphaBeta(-beta, -alpha, depth-1)
+		}
 		unmove()
 
 		// Beta-cutoff; better than the best move.
@@ -103,19 +115,22 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 		}
 		if score > alpha {
 			alpha = score
+			foundPV = true
 		}
 	}
 
 	return alpha
 }
 
+// Quiesce runs a limited search on checks and captures until it reaches a quiet position.
+// Eval() is unreliable in "loud" positions as there might be a queen hanging or worse.
+// Quiescent search avoids the "horizon effect".
+// Note: 50%-90% of nodes searched are here, pruning goes a long way.
 func (e *Engine) Quiesce(alpha, beta int16) int16 {
-	moves := e.board.GenerateLegalMoves()
-	if len(moves) == 0 && e.board.OurKingInCheck() {
-		return mateVal
-	} else if len(moves) == 0 {
-		// fmt.Println("quiescence draw hit")
-		return 0
+
+	// Checks are extra noisy. Search one move deeper.
+	if e.board.OurKingInCheck() {
+		return e.AlphaBeta(alpha, beta, 1)
 	}
 
 	nodes++
@@ -127,8 +142,9 @@ func (e *Engine) Quiesce(alpha, beta int16) int16 {
 		alpha = score
 	}
 
-	for _, move := range moves {
+	for _, move := range e.board.GenerateLegalMoves() {
 		// Skip non-captures.
+		// TODO: also skip bad captures, e.g. QxP.
 		if !Occupied(e.board, move.To()) {
 			continue
 		}
