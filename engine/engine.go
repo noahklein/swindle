@@ -14,15 +14,16 @@ const (
 	author  = "Noah Klein"
 	version = "1.0"
 
-	depth = 4
+	depth = 5
 )
 
 // The chess engine. Must call NewGame() to initialize, followed by Position().
 type Engine struct {
-	killer *Killer
-	board  *dragon.Board
-	ply    int
-	cancel func()
+	killer  *Killer
+	board   *dragon.Board
+	history map[uint64]int
+	ply     int
+	cancel  func()
 
 	debug bool // Enables logs/metrics.
 }
@@ -35,6 +36,7 @@ func (e *Engine) NewGame() {
 	board := dragon.ParseFen(dragon.Startpos)
 	e.killer = NewKiller()
 	e.board = &board
+	e.history = map[uint64]int{}
 	e.ply = 1
 	e.cancel = func() {}
 	e.debug = true
@@ -43,6 +45,7 @@ func (e *Engine) NewGame() {
 func (e *Engine) Position(fen string, moves []string) {
 	board := dragon.ParseFen(fen)
 	e.board = &board
+	e.history = map[uint64]int{board.Hash(): 1}
 	for _, move := range moves {
 		m, err := dragon.ParseMove(move)
 		if err != nil {
@@ -64,14 +67,22 @@ func (e *Engine) Go(info uci.SearchParams) uci.SearchResults {
 	return e.Search(ctx, info)
 }
 
+// Make a move on the board. Returns an unmove callback.
 func (e *Engine) Move(m dragon.Move) func() {
 	unapply := e.board.Apply(m)
 	e.ply++
+	hash := e.board.Hash()
+	e.history[hash]++
 
 	return func() {
 		unapply()
 		e.ply--
+		e.history[hash]--
 	}
+}
+
+func (e *Engine) Threefold() bool {
+	return e.history[e.board.Hash()] >= 3
 }
 
 func (e *Engine) Stop() {

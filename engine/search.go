@@ -9,12 +9,16 @@ import (
 	"github.com/noahklein/dragon"
 )
 
+// Counts nodes visited in a search.
 var nodes int
 
 const (
 	mateVal      int16 = -15000
+	drawVal      int16 = 0
 	initialAlpha int16 = -20000
 	initialBeta  int16 = 20000
+
+	depthReduction = 2
 )
 
 // Root search.
@@ -34,7 +38,7 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 	bestScore := initialAlpha
 	var bestMove dragon.Move
 
-	for _, move := range e.board.GenerateLegalMoves() {
+	for _, move := range e.GenMoves() {
 		nodes++
 		unmove := e.Move(move)
 		score := e.IterDeep(ctx, params.Depth)
@@ -102,19 +106,20 @@ func (e *Engine) IterDeep(ctx context.Context, maxDepth int) int16 {
 func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 	nodes++
 
-	moves := e.board.GenerateLegalMoves()
+	if e.Threefold() {
+		return drawVal
+	}
 
+	moves := e.GenMoves()
 	// Checkmate
 	if len(moves) == 0 && e.board.OurKingInCheck() {
 		return mateVal + int16(e.ply)
 	}
-	// Draw
 	if len(moves) == 0 {
-		// fmt.Println("alphabeta draw hit")
-		return 0
+		return drawVal
 	}
 
-	if depth == 0 {
+	if depth <= 0 {
 		// return Eval(e.board)
 		return e.Quiesce(alpha, beta)
 	}
@@ -155,6 +160,10 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 // Quiescent search avoids the "horizon effect".
 // Note: 50%-90% of nodes searched are here, pruning goes a long way.
 func (e *Engine) Quiesce(alpha, beta int16) int16 {
+	if e.Threefold() {
+		return drawVal
+	}
+
 	// Checks are extra noisy. Search one move deeper.
 	if e.board.OurKingInCheck() {
 		return e.AlphaBeta(alpha, beta, 1)
@@ -169,7 +178,7 @@ func (e *Engine) Quiesce(alpha, beta int16) int16 {
 		alpha = score
 	}
 
-	for _, move := range e.board.GenerateLegalMoves() {
+	for _, move := range e.GenMoves() {
 		// Skip non-captures.
 		// TODO: also skip bad captures, e.g. QxP.
 		if !Occupied(e.board, move.To()) {
@@ -190,6 +199,13 @@ func (e *Engine) Quiesce(alpha, beta int16) int16 {
 	}
 
 	return alpha
+}
+
+func (e *Engine) GenMoves() []dragon.Move {
+	if e.Threefold() {
+		return nil
+	}
+	return e.board.GenerateLegalMoves()
 }
 
 // Sort moves using heuristics, e.g. search captures and promotions before other moves.
@@ -238,10 +254,6 @@ func IsCheck(board *dragon.Board, move dragon.Move) bool {
 	unapply := board.Apply(move)
 	defer unapply()
 	return board.OurKingInCheck()
-}
-
-func contains(bitset uint64, square uint8) bool {
-	return bitset&(1<<square) >= 1
 }
 
 func whiteToMove(board *dragon.Board) int16 {

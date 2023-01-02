@@ -74,7 +74,7 @@ func TestForcedDraw(t *testing.T) {
 		want  string
 	}{
 		// Black has mate in 2, white to play and draw.
-		// {"5r1k/8/6Q1/8/1b6/2n5/1q6/7K w - - 0 1", 5, "g6h6"},
+		{"5r1k/8/6Q1/8/1b6/2n5/1q6/7K w - - 0 1", 5, "g6h6"},
 	}
 
 	for _, tt := range tests {
@@ -149,6 +149,46 @@ func TestMvvLva(t *testing.T) {
 
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Wrong sort order: got %v, want %v", got, want)
+	}
+}
+
+func TestThreefold(t *testing.T) {
+	var e Engine
+	e.NewGame()
+	e.Position(dragon.Startpos, nil)
+	e.Debug(false)
+
+	moves := []string{
+		"b1c3",
+		"g8f6",
+		"c3b1",
+		"f6g8",
+		"b1c3",
+		"g8f6",
+		"c3b1",
+		"f6g8",
+	}
+
+	var unmove func()
+	for _, m := range moves {
+		if e.Threefold() {
+			t.Errorf("False threefold reported after move %v", m)
+		}
+
+		move, err := dragon.ParseMove(m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		unmove = e.Move(move)
+	}
+
+	if !e.Threefold() {
+		t.Error("Threefold not reported after final move")
+	}
+	unmove()
+
+	if e.Threefold() {
+		t.Error("False threefold reported after unmove")
 	}
 }
 
