@@ -5,8 +5,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/dylhunn/dragontoothmg"
 	"github.com/noahklein/chess/uci"
+	"github.com/noahklein/dragon"
 )
 
 var nodes int
@@ -32,7 +32,7 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 	defer cancel()
 
 	bestScore := initialAlpha
-	var bestMove dragontoothmg.Move
+	var bestMove dragon.Move
 
 	for _, move := range e.board.GenerateLegalMoves() {
 		nodes++
@@ -41,7 +41,7 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 		unmove()
 
 		if score >= bestScore {
-			e.Print("move %s: %v; d=%v", move.String(), score, depth)
+			e.Print("move %s: %v", move.String(), score)
 			bestScore = score
 			bestMove = move
 		}
@@ -80,13 +80,13 @@ func (e *Engine) IterDeep(ctx context.Context, maxDepth int) int16 {
 		}
 
 		score = -e.AlphaBeta(-beta, -alpha, depth)
+		// Eval outside of aspiration window, re-search at same depth with wider window.
 		if score <= alpha || score >= beta {
-			e.Print("Eval was outside of aspirational window. Re-search at same depth, %v.", depth)
 			alpha, beta = initialAlpha, initialBeta
 			continue
 		}
+		// Eval inside of window.
 		alpha, beta = score-window, score+window
-		e.Print("Eval was inside aspirational window! New window: %v, %v.", alpha, beta)
 		depth++
 	}
 
@@ -155,7 +155,6 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 // Quiescent search avoids the "horizon effect".
 // Note: 50%-90% of nodes searched are here, pruning goes a long way.
 func (e *Engine) Quiesce(alpha, beta int16) int16 {
-
 	// Checks are extra noisy. Search one move deeper.
 	if e.board.OurKingInCheck() {
 		return e.AlphaBeta(alpha, beta, 1)
@@ -195,9 +194,9 @@ func (e *Engine) Quiesce(alpha, beta int16) int16 {
 
 // Sort moves using heuristics, e.g. search captures and promotions before other moves.
 // Searching better moves first helps us prune nodes with beta cutoffs.
-func (e *Engine) sortMoves(moves []dragontoothmg.Move) []dragontoothmg.Move {
+func (e *Engine) sortMoves(moves []dragon.Move) []dragon.Move {
 	var (
-		killers, checks, captures, others []dragontoothmg.Move
+		killers, checks, captures, others []dragon.Move
 	)
 
 	kms := e.killer.Get(e.ply)
@@ -218,10 +217,10 @@ func (e *Engine) sortMoves(moves []dragontoothmg.Move) []dragontoothmg.Move {
 
 	// Most-Valuable Victim/Least-Valuable attacker. Search PxQ, before QxP.
 	sort.Slice(captures, func(i, j int) bool {
-		_, f1 := At(e.board, captures[i].From())
-		_, f2 := At(e.board, captures[j].From())
-		_, t1 := At(e.board, captures[i].To())
-		_, t2 := At(e.board, captures[j].To())
+		f1, _ := dragon.GetPieceType(captures[i].From(), e.board)
+		f2, _ := dragon.GetPieceType(captures[j].From(), e.board)
+		t1, _ := dragon.GetPieceType(captures[i].To(), e.board)
+		t2, _ := dragon.GetPieceType(captures[j].To(), e.board)
 		return t1-f1 > t2-f2
 	})
 
@@ -231,11 +230,11 @@ func (e *Engine) sortMoves(moves []dragontoothmg.Move) []dragontoothmg.Move {
 }
 
 // Occupied checks if a square is occupied.
-func Occupied(board *dragontoothmg.Board, square uint8) bool {
+func Occupied(board *dragon.Board, square uint8) bool {
 	return (board.Black.All|board.White.All)&uint64(1<<square) >= 1
 }
 
-func IsCheck(board *dragontoothmg.Board, move dragontoothmg.Move) bool {
+func IsCheck(board *dragon.Board, move dragon.Move) bool {
 	unapply := board.Apply(move)
 	defer unapply()
 	return board.OurKingInCheck()
@@ -245,7 +244,7 @@ func contains(bitset uint64, square uint8) bool {
 	return bitset&(1<<square) >= 1
 }
 
-func whiteToMove(board *dragontoothmg.Board) int16 {
+func whiteToMove(board *dragon.Board) int16 {
 	if board.Wtomove {
 		return 1
 	}

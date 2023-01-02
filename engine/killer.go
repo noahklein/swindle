@@ -1,19 +1,19 @@
 package engine
 
-import "github.com/dylhunn/dragontoothmg"
+import "github.com/noahklein/dragon"
 
 // Killer moves, moves that caused a beta-cuttoff. We store 2 per ply.
 type Killer struct {
-	moves map[int][2]dragontoothmg.Move
+	moves map[int][2]dragon.Move
 }
 
 func NewKiller() *Killer {
 	return &Killer{
-		moves: map[int][2]dragontoothmg.Move{},
+		moves: map[int][2]dragon.Move{},
 	}
 }
 
-func (k *Killer) Add(ply int, move dragontoothmg.Move) {
+func (k *Killer) Add(ply int, move dragon.Move) {
 	kms := k.moves[ply]
 	if kms[0] == move || kms[1] == move {
 		return
@@ -23,6 +23,6 @@ func (k *Killer) Add(ply int, move dragontoothmg.Move) {
 }
 
 // Returns 0000 if empty which translates to a1a1, an impossible move.
-func (k *Killer) Get(ply int) [2]dragontoothmg.Move {
+func (k *Killer) Get(ply int) [2]dragon.Move {
 	return k.moves[ply]
 }

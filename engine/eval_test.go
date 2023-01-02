@@ -3,16 +3,16 @@ package engine
 import (
 	"testing"
 
-	"github.com/dylhunn/dragontoothmg"
+	"github.com/noahklein/dragon"
 )
 
 func TestEval(t *testing.T) {
 	tests := []struct {
-		board dragontoothmg.Board
+		board dragon.Board
 		want  int16
 	}{
 		{
-			board: dragontoothmg.ParseFen(dragontoothmg.Startpos),
+			board: dragon.ParseFen(dragon.Startpos),
 			want:  0,
 		},
 	}
@@ -26,7 +26,7 @@ func TestEval(t *testing.T) {
 var result int16
 
 func BenchmarkEval(b *testing.B) {
-	board := dragontoothmg.ParseFen(dragontoothmg.Startpos)
+	board := dragon.ParseFen(dragon.Startpos)
 	for i := 0; i < b.N; i++ {
 		result = Eval(&board)
 	}

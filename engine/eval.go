@@ -3,7 +3,7 @@ package engine
 import (
 	"math/bits"
 
-	"github.com/dylhunn/dragontoothmg"
+	"github.com/noahklein/dragon"
 )
 
 const (
@@ -14,7 +14,7 @@ const (
 	queenVal  = 900
 )
 
-func Eval(board *dragontoothmg.Board) int16 {
+func Eval(board *dragon.Board) int16 {
 	score := pieceEval(&board.White) - pieceEval(&board.Black)
 	// var score int16
 
@@ -22,17 +22,17 @@ func Eval(board *dragontoothmg.Board) int16 {
 
 	// Give bonus points for piece positions.
 	for square := uint8(0); square < 64; square++ {
-		color, piece := At(board, square)
-		if color == Empty {
+		piece, isWhite := dragon.GetPieceType(square, board)
+		if piece == dragon.Nothing {
 			continue
 		}
 
-		posBonus := MidGameTable[pieceColor(int(piece), color)][square]
+		posBonus := MidGameTable[pieceColor(int(piece), isWhite)][square]
 		if phase == EndGame {
-			posBonus = EndGameTable[pieceColor(int(piece), color)][square]
+			posBonus = EndGameTable[pieceColor(int(piece), isWhite)][square]
 		}
 
-		if color == White {
+		if isWhite {
 			score += posBonus
 		} else {
 			score -= posBonus
@@ -42,7 +42,7 @@ func Eval(board *dragontoothmg.Board) int16 {
 	return whiteToMove(board) * score
 }
 
-func pieceEval(b *dragontoothmg.Bitboards) int16 {
+func pieceEval(b *dragon.Bitboards) int16 {
 	score := bits.OnesCount64(b.Pawns)*pawnVal +
 		bits.OnesCount64(b.Knights)*knightVal +
 		bits.OnesCount64(b.Bishops)*bishopVal +
@@ -51,7 +51,7 @@ func pieceEval(b *dragontoothmg.Bitboards) int16 {
 	return int16(score)
 }
 
-func pieceCount(b *dragontoothmg.Bitboards) int {
+func pieceCount(b *dragon.Bitboards) int {
 	return bits.OnesCount64(b.Knights) +
 		bits.OnesCount64(b.Bishops) +
 		bits.OnesCount64(b.Rooks) +
@@ -59,7 +59,7 @@ func pieceCount(b *dragontoothmg.Bitboards) int {
 }
 
 // TODO: improve endgame detection.
-func gamePhase(b *dragontoothmg.Board) GamePhase {
+func gamePhase(b *dragon.Board) GamePhase {
 	if pieceCount(&b.White)+pieceCount(&b.Black) < 7 {
 		return EndGame
 	}

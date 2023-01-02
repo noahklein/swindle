@@ -1,7 +1,7 @@
 // Piece square tables.
 package engine
 
-import "github.com/dylhunn/dragontoothmg"
+import "github.com/noahklein/dragon"
 
 func init() {
 	initPieceSquare()
@@ -181,9 +181,9 @@ func initPieceSquare() {
 		EGKingTable,
 	}
 
-	for piece := dragontoothmg.Pawn; piece <= dragontoothmg.King; piece++ {
+	for piece := dragon.Pawn; piece <= dragon.King; piece++ {
 		for sq := uint8(0); sq < 64; sq++ {
-			pc := pieceColor(piece, White)
+			pc := pieceColor(piece, true)
 			// White
 			MidGameTable[pc][sq] = mgTable[piece-1][Flip(sq)]
 			EndGameTable[pc][sq] = egTable[piece-1][Flip(sq)]
@@ -194,49 +194,13 @@ func initPieceSquare() {
 	}
 }
 
-func pieceColor(piece int, color Color) int {
-	return 2*(piece-1) + int(color)
+func pieceColor(piece int, isWhite bool) int {
+	if isWhite {
+		return 2 * (piece - 1)
+	}
+	return 2*(piece-1) + 1
 }
 
 func Flip(square uint8) uint8 {
 	return square ^ 56
-}
-
-// At gets the color and piece of a square.
-// TODO: This is needlessly slow and complicated. Maintain a square-centric board.
-func At(board *dragontoothmg.Board, square uint8) (Color, int) {
-	if contains(board.White.All, square) {
-		switch {
-		case contains(board.White.Pawns, square):
-			return White, dragontoothmg.Pawn
-		case contains(board.White.Knights, square):
-			return White, dragontoothmg.Knight
-		case contains(board.White.Bishops, square):
-			return White, dragontoothmg.Bishop
-		case contains(board.White.Rooks, square):
-			return White, dragontoothmg.Rook
-		case contains(board.White.Queens, square):
-			return White, dragontoothmg.Queen
-		case contains(board.White.Kings, square):
-			return White, dragontoothmg.King
-		}
-	}
-	if contains(board.Black.All, square) {
-		switch {
-		case contains(board.Black.Pawns, square):
-			return Black, dragontoothmg.Pawn
-		case contains(board.Black.Knights, square):
-			return Black, dragontoothmg.Knight
-		case contains(board.Black.Bishops, square):
-			return Black, dragontoothmg.Bishop
-		case contains(board.Black.Rooks, square):
-			return Black, dragontoothmg.Rook
-		case contains(board.Black.Queens, square):
-			return Black, dragontoothmg.Queen
-		case contains(board.Black.Kings, square):
-			return Black, dragontoothmg.King
-		}
-	}
-
-	return Empty, 0
 }

@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/dylhunn/dragontoothmg"
 	"github.com/noahklein/chess/uci"
+	"github.com/noahklein/dragon"
 )
 
 func TestMate(t *testing.T) {
@@ -102,7 +102,7 @@ func TestForcedDraw(t *testing.T) {
 }
 
 func TestOccupied(t *testing.T) {
-	board := dragontoothmg.ParseFen(dragontoothmg.Startpos)
+	board := dragon.ParseFen(dragon.Startpos)
 	tests := []struct {
 		square uint8
 		want   bool
@@ -149,5 +149,26 @@ func TestMvvLva(t *testing.T) {
 
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Wrong sort order: got %v, want %v", got, want)
+	}
+}
+
+func BenchmarkSearchD1(b *testing.B) { benchmarkSearch(1, b) }
+func BenchmarkSearchD2(b *testing.B) { benchmarkSearch(2, b) }
+func BenchmarkSearchD3(b *testing.B) { benchmarkSearch(3, b) }
+func BenchmarkSearchD4(b *testing.B) { benchmarkSearch(4, b) }
+
+func benchmarkSearch(depth int, b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		var e Engine
+		e.NewGame()
+		e.Position(dragon.Startpos, nil)
+		e.Debug(false)
+
+		ctx := context.Background()
+
+		e.Search(ctx, uci.SearchParams{
+			Depth: depth,
+		})
+
 	}
 }

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/dylhunn/dragontoothmg"
 	"github.com/noahklein/chess/uci"
+	"github.com/noahklein/dragon"
 )
 
 const (
@@ -14,13 +14,13 @@ const (
 	author  = "Noah Klein"
 	version = "1.0"
 
-	depth = 5
+	depth = 4
 )
 
 // The chess engine. Must call NewGame() to initialize, followed by Position().
 type Engine struct {
 	killer *Killer
-	board  *dragontoothmg.Board
+	board  *dragon.Board
 	ply    int
 	cancel func()
 
@@ -32,7 +32,7 @@ func (e *Engine) About() (string, string, string) {
 }
 
 func (e *Engine) NewGame() {
-	board := dragontoothmg.ParseFen(dragontoothmg.Startpos)
+	board := dragon.ParseFen(dragon.Startpos)
 	e.killer = NewKiller()
 	e.board = &board
 	e.ply = 1
@@ -41,10 +41,10 @@ func (e *Engine) NewGame() {
 }
 
 func (e *Engine) Position(fen string, moves []string) {
-	board := dragontoothmg.ParseFen(fen)
+	board := dragon.ParseFen(fen)
 	e.board = &board
 	for _, move := range moves {
-		m, err := dragontoothmg.ParseMove(move)
+		m, err := dragon.ParseMove(move)
 		if err != nil {
 			log.Fatalf("Could not parse move %v: %v", move, err)
 		}
@@ -64,7 +64,7 @@ func (e *Engine) Go(info uci.SearchParams) uci.SearchResults {
 	return e.Search(ctx, info)
 }
 
-func (e *Engine) Move(m dragontoothmg.Move) func() {
+func (e *Engine) Move(m dragon.Move) func() {
 	unapply := e.board.Apply(m)
 	e.ply++
 
