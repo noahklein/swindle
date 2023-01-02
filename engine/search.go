@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"sort"
+	"time"
 
 	"github.com/dylhunn/dragontoothmg"
 	"github.com/noahklein/chess/uci"
@@ -26,51 +27,70 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 		params.Depth += 1
 	}
 
-	moves := e.board.GenerateLegalMoves()
+	// TODO: Smarter time management; look at remaining clock?
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
 	bestScore := initialAlpha
 	var bestMove dragontoothmg.Move
 
-	alpha, beta := initialAlpha, initialBeta
+	for _, move := range e.board.GenerateLegalMoves() {
+		nodes++
+		unmove := e.Move(move)
+		score := e.IterDeep(ctx, params.Depth)
+		unmove()
 
-	// Iterative deepening with aspiration window. After each iteration we use the eval
-	// as the center of the alpha-beta window, and search again one ply deeper. If the eval
-	// falls outside of the window, we re-search on the same depth with a wider window.
-	for depth := 1; depth <= params.Depth; {
-		for _, move := range moves {
-			if ctx.Err() != nil {
-				break
-			}
-
-			nodes++
-			unmove := e.Move(move)
-			score := -e.AlphaBeta(-beta, -alpha, depth)
-			unmove()
-
-			if score >= bestScore {
-				e.Print("move %s: %v; d=%v", move.String(), score, depth)
-				bestScore = score
-				bestMove = move
-			}
+		if score >= bestScore {
+			e.Print("move %s: %v; d=%v", move.String(), score, depth)
+			bestScore = score
+			bestMove = move
 		}
+	}
 
-		if bestScore <= alpha || bestScore >= beta {
-			e.Print("Eval was outside of aspirational window. Re-search at same depth, %v.", depth)
-			alpha = initialAlpha
-			beta = initialBeta
-			continue
+	var mate int16
+	plyTillMate := abs(mateVal) - abs(bestScore)
+	if plyTillMate < 600 {
+		mate = plyTillMate / 2
+
+		if bestScore < 0 {
+			mate *= -1
 		}
-		alpha = bestScore - pawnVal/2
-		beta = bestScore + pawnVal/2
-		depth++
-		e.Print("Eval was inside aspirational window! New window: %v, %v.", alpha, beta)
 	}
 
 	return uci.SearchResults{
 		BestMove: bestMove.String(),
 		Score:    bestScore / 100,
+		Mate:     mate,
 		Nodes:    nodes,
 		Depth:    params.Depth,
 	}
+}
+
+// Iterative deepening with aspiration window. After each iteration we use the eval
+// as the center of the alpha-beta window, and search again one ply deeper. If the eval
+// falls outside of the window, we re-search on the same depth with a wider window.
+func (e *Engine) IterDeep(ctx context.Context, maxDepth int) int16 {
+	var score int16
+	alpha, beta := initialAlpha, initialBeta
+	const window = pawnVal / 2
+
+	for depth := 0; depth <= maxDepth; {
+		if ctx.Err() != nil {
+			return score
+		}
+
+		score = -e.AlphaBeta(-beta, -alpha, depth)
+		if score <= alpha || score >= beta {
+			e.Print("Eval was outside of aspirational window. Re-search at same depth, %v.", depth)
+			alpha, beta = initialAlpha, initialBeta
+			continue
+		}
+		alpha, beta = score-window, score+window
+		e.Print("Eval was inside aspirational window! New window: %v, %v.", alpha, beta)
+		depth++
+	}
+
+	return score
 }
 
 // AlphaBeta improves upon the minimax algorithm.
@@ -81,6 +101,7 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 // you only need one refutation to know a move is bad.
 func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 	nodes++
+
 	moves := e.board.GenerateLegalMoves()
 
 	// Checkmate

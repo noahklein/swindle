@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	pawnVal   = 101
+	pawnVal   = 100
 	knightVal = 320
 	bishopVal = 330
 	rookVal   = 500
@@ -64,4 +64,11 @@ func gamePhase(b *dragontoothmg.Board) GamePhase {
 		return EndGame
 	}
 	return MiddleGame
+}
+
+func abs(n int16) int16 {
+	if n < 0 {
+		return -n
+	}
+	return n
 }

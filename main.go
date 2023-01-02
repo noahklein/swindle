@@ -1,9 +1,11 @@
 package main
 
 import (
+
+	// _ "net/http/pprof"
+
 	"github.com/noahklein/chess/engine"
 	"github.com/noahklein/chess/uci"
-	// _ "net/http/pprof"
 )
 
 func main() {
