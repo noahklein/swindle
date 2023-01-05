@@ -9,8 +9,7 @@ import (
 const MB = 1 << 20
 const size = unsafe.Sizeof(Entry{})
 
-const tableSize = 100 * MB / size
-const tSize uint64 = uint64(tableSize)
+const tableSize uint64 = uint64(100 * MB / size)
 
 type NodeType uint8
 
@@ -30,6 +29,7 @@ type Entry struct {
 }
 
 // Table is a transposition table; used to memoize searched positions.
+// TODO: Make goroutine-safe. This can be done locklessly.
 type Table struct {
 	table [tableSize]Entry
 }
@@ -40,12 +40,17 @@ func NewTable() *Table {
 	}
 }
 
-func (t *Table) Get(hash uint64, depth int, alpha, beta int16) (int16, NodeType) {
-	// TODO: Fix table.
-	return 0, NodeUnknown
+func (t *Table) GetEntry(hash uint64) (Entry, bool) {
+	e := t.table[hash%tableSize]
+	return e, e.key == hash
+}
 
-	e := t.table[hash%tSize]
-	if e.key != hash || e.depth < depth {
+func (t *Table) Get(hash uint64, depth int, alpha, beta int16) (int16, NodeType) {
+	// TODO: Need to detect repetitions before enabling tt.
+	// return 0, NodeUnknown
+
+	e, ok := t.GetEntry(hash)
+	if !ok || e.depth < depth {
 		return 0, NodeUnknown
 	}
 
@@ -62,6 +67,6 @@ func (t *Table) Get(hash uint64, depth int, alpha, beta int16) (int16, NodeType)
 }
 
 func (t *Table) Add(e Entry) {
-	key := e.key % tSize
+	key := e.key % tableSize
 	t.table[key] = e
 }

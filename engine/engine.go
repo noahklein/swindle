@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/fatih/color"
 	"github.com/noahklein/chess/uci"
 	"github.com/noahklein/dragon"
 )
@@ -107,4 +108,8 @@ func (e *Engine) Print(s string, a ...any) {
 	if e.debug {
 		fmt.Printf("info string "+s+"\n", a...)
 	}
+}
+
+func (e *Engine) Error(s string, a ...any) {
+	color.Red(s, a...)
 }

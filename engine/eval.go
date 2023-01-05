@@ -60,7 +60,10 @@ func pieceCount(b *dragon.Bitboards) int {
 
 // TODO: improve endgame detection.
 func gamePhase(b *dragon.Board) GamePhase {
-	if pieceCount(&b.White)+pieceCount(&b.Black) < 7 {
+	if b.White.Queens == 0 && b.Black.Queens == 0 {
+		return EndGame
+	}
+	if pieceCount(&b.White)+pieceCount(&b.Black) < 6 {
 		return EndGame
 	}
 	return MiddleGame

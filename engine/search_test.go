@@ -44,7 +44,7 @@ func TestMate(t *testing.T) {
 			var e Engine
 			e.NewGame()
 			e.Position(tt.fen, nil)
-			e.Debug(false)
+			e.Debug(true)
 
 			results := e.Search(context.Background(), uci.SearchParams{
 				Depth: tt.depth,

@@ -10,6 +10,7 @@ import (
 )
 
 // Counts nodes visited in a search.
+// TODO: Make goroutine-safe.
 var nodes int
 
 const (
@@ -17,8 +18,6 @@ const (
 	drawVal      int16 = 0
 	initialAlpha int16 = -20000
 	initialBeta  int16 = 20000
-
-	depthReduction = 2
 )
 
 // Root search.
@@ -31,12 +30,17 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 		params.Depth += 1
 	}
 
-	// TODO: Smarter time management; look at remaining clock?
+	// TODO: Smarter time management; look at remaining clock.
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
+	moves := e.GenMoves()
+	if len(moves) == 0 {
+		e.Error("Search() called on game that has already ended.")
+	}
+
 	bestScore := initialAlpha
-	var bestMove dragon.Move
+	bestMove := moves[0]
 
 	for _, move := range e.GenMoves() {
 		nodes++
@@ -61,11 +65,17 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 		}
 	}
 
+	var pv []string
+	for _, move := range e.PrincipalVariation(bestMove, 2) {
+		pv = append(pv, move.String())
+	}
+
 	return uci.SearchResults{
 		BestMove: bestMove.String(),
 		Score:    bestScore / 100,
 		Mate:     mate,
 		Nodes:    nodes,
+		PV:       pv,
 		Depth:    params.Depth,
 	}
 }
@@ -150,9 +160,9 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 		}
 		unmove()
 
-		// Beta-cutoff; better than the best move.
+		// Beta-cutoff; better than the previous best move, opponent won't allow this.
 		if score >= beta {
-			e.killer.Add(int(e.ply), move)
+			e.killer.Add(e.ply, move)
 			e.table.Add(Entry{
 				key:   e.board.Hash(),
 				depth: depth,
@@ -189,9 +199,11 @@ func (e *Engine) Quiesce(alpha, beta int16) int16 {
 		return drawVal
 	}
 
-	// Checks are extra noisy. Search one move deeper.
-	if e.board.OurKingInCheck() {
-		return e.AlphaBeta(alpha, beta, 1)
+	moves := e.GenMoves()
+	if len(moves) == 0 && e.board.OurKingInCheck() {
+		return mateVal + int16(e.ply)
+	} else if len(moves) == 0 {
+		return drawVal
 	}
 
 	nodes++
@@ -203,7 +215,7 @@ func (e *Engine) Quiesce(alpha, beta int16) int16 {
 		alpha = score
 	}
 
-	for _, move := range e.GenMoves() {
+	for _, move := range moves {
 		// Skip non-captures.
 		// TODO: also skip bad captures, e.g. QxP.
 		if !Occupied(e.board, move.To()) {
@@ -226,6 +238,28 @@ func (e *Engine) Quiesce(alpha, beta int16) int16 {
 	return alpha
 }
 
+// Gets the principal variation by recursively following the best moves in the
+// transposition table.
+func (e *Engine) PrincipalVariation(bestMove dragon.Move, depth int) []dragon.Move {
+	if depth == 0 {
+		return nil
+	}
+
+	unmove := e.board.Apply(bestMove)
+	defer unmove()
+
+	if entry, ok := e.table.GetEntry(e.board.Hash()); ok {
+		return append([]dragon.Move{bestMove}, e.PrincipalVariation(entry.best, depth-1)...)
+	}
+	return []dragon.Move{bestMove}
+}
+
+func (e *Engine) PVMove() (dragon.Move, bool) {
+	entry, ok := e.table.GetEntry(e.board.Hash())
+	return entry.best, ok
+
+}
+
 func (e *Engine) GenMoves() []dragon.Move {
 	if e.Threefold() {
 		return nil
@@ -233,21 +267,23 @@ func (e *Engine) GenMoves() []dragon.Move {
 	return e.board.GenerateLegalMoves()
 }
 
-// Sort moves using heuristics, e.g. search captures and promotions before other moves.
+// Sort moves using cheap heuristics, e.g. search captures and promotions before other moves.
 // Searching better moves first helps us prune nodes with beta cutoffs.
 func (e *Engine) sortMoves(moves []dragon.Move) []dragon.Move {
 	var (
-		killers, checks, captures, others []dragon.Move
+		out, killers, checks, captures, others []dragon.Move
 	)
+
+	pv, pvOk := e.PVMove()
 
 	kms := e.killer.Get(e.ply)
 
 	for _, move := range moves {
-		// The zero-value for moves is a1a1, an impossible move.
-		if move == kms[0] || move == kms[1] {
+		if pvOk && move == pv {
+			out = append(out, move)
+		} else if move == kms[0] || move == kms[1] { // Zero-value is a1a1, an impossible move.
 			killers = append(killers, move)
-		}
-		if IsCheck(e.board, move) {
+		} else if IsCheck(e.board, move) {
 			checks = append(checks, move)
 		} else if Occupied(e.board, move.To()) {
 			captures = append(captures, move)
@@ -265,7 +301,8 @@ func (e *Engine) sortMoves(moves []dragon.Move) []dragon.Move {
 		return t1-f1 > t2-f2
 	})
 
-	out := append(killers, checks...)
+	out = append(out, killers...)
+	out = append(out, checks...)
 	out = append(out, captures...)
 	return append(out, others...)
 }

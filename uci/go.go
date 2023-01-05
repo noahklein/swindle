@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -22,7 +23,8 @@ type SearchParams struct {
 type SearchResults struct {
 	BestMove string
 	Score    int16
-	Mate     int16 // Moves till mate, negative if engine is losing.
+	Mate     int16    // Moves till mate, negative if engine is losing.
+	PV       []string // Principal variation.
 	Nodes    int
 	Depth    int
 }
@@ -35,9 +37,9 @@ func search(engine Engine, args []string) {
 		duration := time.Since(start)
 		// TODO: report other search results.
 		if result.Mate != 0 {
-			fmt.Printf("info depth %v score mate %v time %d nodes %v\n", result.Depth, result.Mate, duration/time.Millisecond, result.Nodes)
+			fmt.Printf("info depth %v score mate %v time %d nodes %v pv %v\n", result.Depth, result.Mate, duration/time.Millisecond, result.Nodes, strings.Join(result.PV, " "))
 		}
-		fmt.Printf("info depth %v score cp %v time %d nodes %v\n", result.Depth, result.Score, duration/time.Millisecond, result.Nodes)
+		fmt.Printf("info depth %v score cp %v time %d nodes %v pv %v\n", result.Depth, result.Score, duration/time.Millisecond, result.Nodes, strings.Join(result.PV, " "))
 		fmt.Printf("bestmove %v\n", result.BestMove)
 	}()
 }
