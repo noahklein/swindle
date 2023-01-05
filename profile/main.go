@@ -50,6 +50,8 @@ func main() {
 			results.Nodes,
 			fmt.Sprintf("%v/s", results.Nodes/int(time.Since(start)/time.Second)),
 		)
+		fmt.Printf("Finished depth %v in %v\n", depth, time.Since(start))
+		time.Sleep(1 * time.Second)
 	}
 
 	fmt.Print("==== Finished ====\n\n")
