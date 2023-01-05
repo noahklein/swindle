@@ -1,3 +1,5 @@
+// Plays games at multiple depths and reports stats. To get a profile, use the --profile
+// flag and run: go tool pprof -top http://localhost:6060/debug/pprof/profile
 package main
 
 import (
@@ -41,14 +43,17 @@ func main() {
 	tbl.WithHeaderFormatter(headerColor)
 	tbl.WithFirstColumnFormatter(firstColColor)
 
+	// Play a whole game at a certain depth and log the results in a table.
 	for depth := 1; depth <= *maxDepth; depth++ {
 		start := time.Now()
 		results := playGame(dragon.Startpos, depth)
 
+		nps := results.Nodes / int(time.Since(start)) * int(time.Second)
+
 		tbl.AddRow(
 			depth, results.Score, fmtDuration(time.Since(start)),
 			results.Nodes,
-			fmt.Sprintf("%v/s", results.Nodes/int(time.Since(start)/time.Second)),
+			fmt.Sprintf("%v/s", nps),
 		)
 		fmt.Printf("Finished depth %v in %v\n", depth, time.Since(start))
 		time.Sleep(1 * time.Second)
