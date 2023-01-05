@@ -119,12 +119,21 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 		return drawVal
 	}
 
+	// Check transposition table.
+	if val, nt := e.table.Get(e.board.Hash(), depth, alpha, beta); nt != NodeUnknown {
+		return val
+	}
+
 	if depth <= 0 {
 		// return Eval(e.board)
 		return e.Quiesce(alpha, beta)
 	}
 
+	// Assume this is an alpha node.
+	nodeType := NodeAlpha
+
 	var foundPV bool
+	var bestMove dragon.Move
 	for _, move := range e.sortMoves(moves) {
 		unmove := e.Move(move)
 
@@ -144,14 +153,30 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 		// Beta-cutoff; better than the best move.
 		if score >= beta {
 			e.killer.Add(int(e.ply), move)
+			e.table.Add(Entry{
+				key:   e.board.Hash(),
+				depth: depth,
+				flag:  NodeBeta,
+				value: beta,
+				best:  move,
+			})
 			return beta
 		}
 		if score > alpha {
 			alpha = score
+			bestMove = move
 			foundPV = true
+			nodeType = NodeExact
 		}
 	}
 
+	e.table.Add(Entry{
+		key:   e.board.Hash(),
+		depth: depth,
+		flag:  nodeType,
+		value: alpha,
+		best:  bestMove,
+	})
 	return alpha
 }
 

@@ -20,6 +20,7 @@ const (
 // The chess engine. Must call NewGame() to initialize, followed by Position().
 type Engine struct {
 	killer  *Killer
+	table   *Table
 	board   *dragon.Board
 	history map[uint64]int
 	ply     int
@@ -36,6 +37,7 @@ func (e *Engine) NewGame() {
 	board := dragon.ParseFen(dragon.Startpos)
 	e.killer = NewKiller()
 	e.board = &board
+	e.table = NewTable()
 	e.history = map[uint64]int{}
 	e.ply = 1
 	e.cancel = func() {}
