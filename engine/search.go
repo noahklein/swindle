@@ -55,25 +55,15 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 		}
 	}
 
-	var mate int16
-	plyTillMate := abs(mateVal) - abs(bestScore)
-	if plyTillMate < 600 {
-		mate = plyTillMate / 2
-
-		if bestScore < 0 {
-			mate *= -1
-		}
-	}
-
 	var pv []string
-	for _, move := range e.PrincipalVariation(bestMove, 2) {
+	for _, move := range e.PrincipalVariation(bestMove, 5) {
 		pv = append(pv, move.String())
 	}
 
 	return uci.SearchResults{
 		BestMove: bestMove.String(),
 		Score:    bestScore / 100,
-		Mate:     mate,
+		Mate:     e.mateScore(bestScore),
 		Nodes:    nodes,
 		PV:       pv,
 		Depth:    params.Depth,
@@ -99,6 +89,7 @@ func (e *Engine) IterDeep(ctx context.Context, maxDepth int) int16 {
 			alpha, beta = initialAlpha, initialBeta
 			continue
 		}
+
 		// Eval inside of window.
 		alpha, beta = score-window, score+window
 		depth++
@@ -323,4 +314,21 @@ func whiteToMove(board *dragon.Board) int16 {
 		return 1
 	}
 	return -1
+}
+
+const maxMate = 400
+
+// Converts an eval score into ply till mate. Returns 0 if not mating.
+func (e *Engine) mateScore(score int16) int16 {
+	var mate int16
+	plyTillMate := abs(mateVal) - abs(score)
+	if plyTillMate < maxMate {
+		mate = plyTillMate / 2
+
+		if score < 0 {
+			mate *= -1
+		}
+	}
+
+	return mate
 }
