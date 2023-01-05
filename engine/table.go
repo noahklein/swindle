@@ -28,8 +28,10 @@ type Entry struct {
 	best  dragon.Move
 }
 
-// Table is a transposition table; used to memoize searched positions.
-// TODO: Make goroutine-safe. This can be done locklessly.
+// Table is a transposition table (TT); used to memoize searched positions. TTs add
+// search-instability.
+// TODO: Make goroutine-safe. This can be done locklessly, but we'll have to verify the
+// result after reading; potentially dangerous.
 type Table struct {
 	table [tableSize]Entry
 }
@@ -40,16 +42,16 @@ func NewTable() *Table {
 	}
 }
 
-func (t *Table) GetEntry(hash uint64) (Entry, bool) {
+func (t *Table) Get(hash uint64) (Entry, bool) {
 	e := t.table[hash%tableSize]
 	return e, e.key == hash
 }
 
-func (t *Table) Get(hash uint64, depth int, alpha, beta int16) (int16, NodeType) {
+func (t *Table) GetEval(hash uint64, depth int, alpha, beta int16) (int16, NodeType) {
 	// TODO: Need to detect repetitions before enabling tt.
 	// return 0, NodeUnknown
 
-	e, ok := t.GetEntry(hash)
+	e, ok := t.Get(hash)
 	if !ok || e.depth < depth {
 		return 0, NodeUnknown
 	}

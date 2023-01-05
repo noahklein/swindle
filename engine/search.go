@@ -130,7 +130,7 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 	}
 
 	// Check transposition table.
-	if val, nt := e.table.Get(e.board.Hash(), depth, alpha, beta); nt != NodeUnknown {
+	if val, nt := e.table.GetEval(e.board.Hash(), depth, alpha, beta); nt != NodeUnknown {
 		return val
 	}
 
@@ -248,14 +248,14 @@ func (e *Engine) PrincipalVariation(bestMove dragon.Move, depth int) []dragon.Mo
 	unmove := e.board.Apply(bestMove)
 	defer unmove()
 
-	if entry, ok := e.table.GetEntry(e.board.Hash()); ok {
+	if entry, ok := e.table.Get(e.board.Hash()); ok {
 		return append([]dragon.Move{bestMove}, e.PrincipalVariation(entry.best, depth-1)...)
 	}
 	return []dragon.Move{bestMove}
 }
 
 func (e *Engine) PVMove() (dragon.Move, bool) {
-	entry, ok := e.table.GetEntry(e.board.Hash())
+	entry, ok := e.table.Get(e.board.Hash())
 	return entry.best, ok
 
 }
