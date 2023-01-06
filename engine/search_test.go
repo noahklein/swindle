@@ -133,18 +133,18 @@ func TestMvvLva(t *testing.T) {
 	e.NewGame()
 	e.Position(fen, nil)
 
-	moves := e.sortMoves(e.board.GenerateLegalMoves())[0:4]
-
-	var got []string
-	for _, m := range moves {
-		got = append(got, m.String())
-	}
-
 	want := []string{
 		"d1h1", // Rook check
 		"e6d7", // PxQ
 		"a4d7", // BxQ
 		"d1d7", // RxQ
+	}
+
+	moves := e.sortMoves(e.board.GenerateLegalMoves())[:len(want)]
+
+	var got []string
+	for _, m := range moves {
+		got = append(got, m.String())
 	}
 
 	if !reflect.DeepEqual(got, want) {
@@ -196,6 +196,7 @@ func BenchmarkSearchD1(b *testing.B) { benchmarkSearch(1, b) }
 func BenchmarkSearchD2(b *testing.B) { benchmarkSearch(2, b) }
 func BenchmarkSearchD3(b *testing.B) { benchmarkSearch(3, b) }
 func BenchmarkSearchD4(b *testing.B) { benchmarkSearch(4, b) }
+func BenchmarkSearchD5(b *testing.B) { benchmarkSearch(5, b) }
 
 func benchmarkSearch(depth int, b *testing.B) {
 	for n := 0; n < b.N; n++ {
