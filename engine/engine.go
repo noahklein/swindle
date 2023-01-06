@@ -15,7 +15,7 @@ const (
 	author  = "Noah Klein"
 	version = "1.0"
 
-	depth = 5
+	depth = 4
 )
 
 // The chess engine. Must call NewGame() to initialize, followed by Position().
