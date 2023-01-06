@@ -3,17 +3,18 @@ package puzzle
 import (
 	"encoding/csv"
 	"io"
+	"math"
 	"os"
 	"strconv"
 	"strings"
 )
 
 type Puzzle struct {
-	id     string
-	fen    string
-	moves  []string
-	rating int
-	themes []string
+	ID     string
+	Fen    string
+	Moves  []string
+	Rating int
+	Themes []string
 }
 
 func PuzzleDB(howMany int, predicate func(Puzzle) bool) []Puzzle {
@@ -25,6 +26,10 @@ func PuzzleDB(howMany int, predicate func(Puzzle) bool) []Puzzle {
 	defer f.Close()
 
 	csvReader := csv.NewReader(f)
+
+	if howMany == 0 {
+		howMany = math.MaxInt
+	}
 
 	var puzzles []Puzzle
 	for len(puzzles) < howMany {
@@ -38,11 +43,11 @@ func PuzzleDB(howMany int, predicate func(Puzzle) bool) []Puzzle {
 			panic(err)
 		}
 		p := Puzzle{
-			id:     r[0],
-			fen:    r[1],
-			moves:  strings.Split(r[2], " "),
-			rating: rating,
-			themes: strings.Split(r[7], " "),
+			ID:     r[0],
+			Fen:    r[1],
+			Moves:  strings.Split(r[2], " "),
+			Rating: rating,
+			Themes: strings.Split(r[7], " "),
 		}
 
 		if !predicate(p) {
