@@ -48,7 +48,7 @@ func main() {
 		start := time.Now()
 		results := playGame(dragon.Startpos, depth)
 
-		nps := results.Nodes / int(time.Since(start)) * int(time.Second)
+		nps := results.Nodes * int(time.Second) / int(time.Since(start))
 
 		tbl.AddRow(
 			depth, results.Score, fmtDuration(time.Since(start)),
