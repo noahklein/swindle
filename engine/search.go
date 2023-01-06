@@ -35,10 +35,10 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 		bestMu    sync.Mutex
 		bestScore = initialAlpha
 		bestMove  = moves[0]
+		// TODO: investigate mysterious node counts.
+		nodes, qNodes int
+		maxDepth      int16
 	)
-
-	// TODO: investigate mysterious node counts.
-	var nodes, qNodes int
 
 	var wg sync.WaitGroup
 	for _, move := range moves {
@@ -63,6 +63,7 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 
 				nodes += e.nodeCount.nodes
 				qNodes += e.nodeCount.qNodes
+				maxDepth = max(maxDepth, e.nodeCount.maxPly-e.ply)
 			}
 		}()
 	}
@@ -79,7 +80,7 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 		Mate:     e.mateScore(bestScore),
 		Nodes:    int(nodes),
 		PV:       pv,
-		Depth:    params.Depth,
+		Depth:    int(maxDepth),
 	}
 }
 

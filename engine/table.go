@@ -82,7 +82,7 @@ func (t *Table) Add(e Entry) {
 
 // History is a list of board hashes seen at each ply.
 type History struct {
-	positions [300]uint64
+	positions []uint64
 }
 
 func (hst *History) Threefold(hash uint64, ply int16, halfMoveClock uint8) bool {
@@ -91,7 +91,7 @@ func (hst *History) Threefold(hash uint64, ply int16, halfMoveClock uint8) bool 
 	}
 
 	var count uint8
-	positions := hst.positions[ply-int16(halfMoveClock+1) : ply+1]
+	positions := hst.positions[ply-int16(halfMoveClock+1) : ply]
 
 	for _, h := range positions {
 		if h != hash {
@@ -99,10 +99,6 @@ func (hst *History) Threefold(hash uint64, ply int16, halfMoveClock uint8) bool 
 		}
 
 		count++
-		// fmt.Println("history", hst.positions)
-		// fmt.Println(positions)
-		// fmt.Println(ply, -halfMoveClock)
-		// fmt.Println(ply, halfMoveClock, count)
 		if count == 3 {
 			return true
 		}
@@ -110,8 +106,12 @@ func (hst *History) Threefold(hash uint64, ply int16, halfMoveClock uint8) bool 
 	return false
 }
 
-func (hst *History) Add(hash uint64, ply int16) { hst.positions[ply] = hash }
-func (hst *History) Remove(ply int16)           { hst.positions[ply] = 0 }
+func (hst *History) Add(hash uint64) {
+	hst.positions = append(hst.positions, hash)
+}
+func (hst *History) Remove() {
+	hst.positions = hst.positions[:len(hst.positions)-1]
+}
 
 func (hst *History) Copy() *History {
 	var c History

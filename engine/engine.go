@@ -13,7 +13,7 @@ const (
 	author  = "Noah Klein"
 	version = "1.0"
 
-	depth = 3
+	depth = 5
 )
 
 // The chess engine. Must call NewGame() to initialize, followed by Position().
@@ -63,7 +63,7 @@ func (e *Engine) Copy() *Engine {
 func (e *Engine) Position(fen string, moves []string) {
 	board := dragon.ParseFen(fen)
 	e.board = &board
-	e.history.Add(board.Hash(), 0)
+	e.history.Add(board.Hash())
 	for _, move := range moves {
 		m, err := dragon.ParseMove(move)
 		if err != nil {
@@ -90,13 +90,14 @@ func (e *Engine) Go(info uci.SearchParams) uci.SearchResults {
 func (e *Engine) Move(m dragon.Move) func() {
 	unapply := e.board.Apply(m)
 	hash := e.board.Hash()
-	e.history.Add(hash, e.ply)
+	e.history.Add(hash)
 	e.ply++
+	e.nodeCount.Ply(e.ply)
 
 	return func() {
 		unapply()
 		e.ply--
-		// e.history.Remove(e.ply)
+		e.history.Remove()
 	}
 }
 
