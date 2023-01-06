@@ -2,6 +2,7 @@
 
 Test the engine against the [Lichess Puzzle DB](https://database.lichess.org/#puzzles).
 
+## Setup
 ```bash
 # Download the DB.
 ./download.sh

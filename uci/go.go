@@ -22,11 +22,35 @@ type SearchParams struct {
 
 type SearchResults struct {
 	BestMove string
-	Score    int16
+	Score    float32
 	Mate     int16    // Moves till mate, negative if engine is losing.
 	PV       []string // Principal variation.
 	Nodes    int
 	Depth    int
+}
+
+func (sr SearchResults) Print(duration time.Duration) string {
+	var b strings.Builder
+	b.WriteString("info ")
+
+	add := func(str string, a ...any) {
+		b.WriteString(fmt.Sprintf(str+" ", a...))
+	}
+
+	if sr.Depth != 0 {
+		add("depth %v", sr.Depth)
+	}
+
+	if sr.Mate != 0 {
+		add("score mate %v", sr.Mate)
+	} else {
+		add("score cp %v", sr.Score)
+	}
+	add("time %d", duration/time.Millisecond)
+	add("nodes %d", sr.Nodes)
+	add("pv %v", strings.Join(sr.PV, " "))
+
+	return b.String()
 }
 
 func search(engine Engine, args []string) {
@@ -35,11 +59,8 @@ func search(engine Engine, args []string) {
 		start := time.Now()
 		result := engine.Go(params)
 		duration := time.Since(start)
-		// TODO: report other search results.
-		if result.Mate != 0 {
-			fmt.Printf("info depth %v score mate %v time %d nodes %v pv %v\n", result.Depth, result.Mate, duration/time.Millisecond, result.Nodes, strings.Join(result.PV, " "))
-		}
-		fmt.Printf("info depth %v score cp %v time %d nodes %v pv %v\n", result.Depth, result.Score, duration/time.Millisecond, result.Nodes, strings.Join(result.PV, " "))
+
+		fmt.Println(result.Print(duration))
 		fmt.Printf("bestmove %v\n", result.BestMove)
 	}()
 }

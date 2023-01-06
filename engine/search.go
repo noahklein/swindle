@@ -3,15 +3,12 @@ package engine
 import (
 	"context"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/noahklein/chess/uci"
 	"github.com/noahklein/dragon"
 )
-
-// Counts nodes visited in a search.
-// TODO: Make goroutine-safe.
-var nodes int
 
 const (
 	mateVal      int16 = -15000
@@ -22,38 +19,54 @@ const (
 
 // Root search.
 func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.SearchResults {
-	nodes = 0 // reset node count.
-
-	// Increase depth in endgame.
-	phase := gamePhase(e.board)
-	if phase == EndGame {
-		params.Depth += 1
-	}
+	e.nodeCount.Reset()
 
 	// TODO: Smarter time management; look at remaining clock.
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	moves := e.GenMoves()
+	moves, _ := e.GenMoves()
 	if len(moves) == 0 {
 		e.Error("Search() called on game that has already ended.")
+		return uci.SearchResults{}
 	}
 
-	bestScore := initialAlpha
-	bestMove := moves[0]
+	var (
+		bestMu    sync.Mutex
+		bestScore = initialAlpha
+		bestMove  = moves[0]
+	)
 
-	for _, move := range e.GenMoves() {
-		nodes++
-		unmove := e.Move(move)
-		score := e.IterDeep(ctx, params.Depth)
-		unmove()
+	// TODO: investigate mysterious node counts.
+	var nodes, qNodes int
 
-		if score >= bestScore {
-			e.Print("move %s: %v", move.String(), score)
-			bestScore = score
-			bestMove = move
-		}
+	var wg sync.WaitGroup
+	for _, move := range moves {
+		// Capture variables for goroutine.
+		move, e := move, e.Copy()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			e.nodeCount.Inc()
+
+			unmove := e.Move(move)
+			defer unmove()
+			score := e.IterDeep(ctx, params.Depth)
+
+			bestMu.Lock()
+			defer bestMu.Unlock()
+			if score >= bestScore {
+				e.Print("move %s: %v", move.String(), score)
+				bestScore = score
+				bestMove = move
+
+				nodes += e.nodeCount.nodes
+				qNodes += e.nodeCount.qNodes
+			}
+		}()
 	}
+	wg.Wait()
 
 	var pv []string
 	for _, move := range e.PrincipalVariation(bestMove, 5) {
@@ -62,9 +75,9 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 
 	return uci.SearchResults{
 		BestMove: bestMove.String(),
-		Score:    bestScore / 100,
+		Score:    float32(bestScore) / 100,
 		Mate:     e.mateScore(bestScore),
-		Nodes:    nodes,
+		Nodes:    int(nodes),
 		PV:       pv,
 		Depth:    params.Depth,
 	}
@@ -105,15 +118,14 @@ func (e *Engine) IterDeep(ctx context.Context, maxDepth int) int16 {
 // proves the move to be worse than a previously examined move. In other words,
 // you only need one refutation to know a move is bad.
 func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
-	nodes++
+	e.nodeCount.Inc()
 
 	if e.Threefold() {
 		return drawVal
 	}
 
-	moves := e.GenMoves()
-	// Checkmate
-	if len(moves) == 0 && e.board.OurKingInCheck() {
+	moves, inCheck := e.GenMoves()
+	if inCheck && len(moves) == 0 {
 		return mateVal + int16(e.ply)
 	}
 	if len(moves) == 0 {
@@ -126,8 +138,13 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 	}
 
 	if depth <= 0 {
-		// return Eval(e.board)
 		return e.Quiesce(alpha, beta)
+	}
+
+	if len(moves) == 1 {
+		// TODO: constrain this.
+		// Only one reply, this ply is free. Extend search.
+		// depth++
 	}
 
 	// Assume this is an alpha node.
@@ -135,19 +152,24 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 
 	var foundPV bool
 	var bestMove dragon.Move
-	for _, move := range e.sortMoves(moves) {
+	for mNum, move := range e.sortMoves(moves) {
 		unmove := e.Move(move)
+
+		reduction := 1
+		if mNum > 10 {
+			reduction = 2
+		}
 
 		var score int16
 		if foundPV {
 			// Search tiny window.
-			score = -e.AlphaBeta(-alpha-1, -alpha, depth-1)
+			score = -e.AlphaBeta(-alpha-1, -alpha, depth-reduction)
 			// If we failed, search again with normal window.
 			if score > alpha && score < beta {
-				score = -e.AlphaBeta(-beta, -alpha, depth-1)
+				score = -e.AlphaBeta(-beta, -alpha, depth-reduction)
 			}
 		} else {
-			score = -e.AlphaBeta(-beta, -alpha, depth-1)
+			score = -e.AlphaBeta(-beta, -alpha, depth-reduction)
 		}
 		unmove()
 
@@ -183,21 +205,14 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 
 // Quiesce runs a limited search on checks and captures until it reaches a quiet position.
 // Eval() is unreliable in "loud" positions as there might be a queen hanging or worse.
-// Quiescent search avoids the "horizon effect".
+// Quiescent search avoids the "horizon effect."
 // Note: 50%-90% of nodes searched are here, pruning goes a long way.
 func (e *Engine) Quiesce(alpha, beta int16) int16 {
 	if e.Threefold() {
 		return drawVal
 	}
 
-	moves := e.GenMoves()
-	if len(moves) == 0 && e.board.OurKingInCheck() {
-		return mateVal + int16(e.ply)
-	} else if len(moves) == 0 {
-		return drawVal
-	}
-
-	nodes++
+	e.nodeCount.Qinc()
 	score := Eval(e.board)
 	if score >= beta {
 		return beta
@@ -206,7 +221,13 @@ func (e *Engine) Quiesce(alpha, beta int16) int16 {
 		alpha = score
 	}
 
+	// TODO: handle checks specially.
+	moves, _ := e.GenMoves()
 	for _, move := range moves {
+		if score, ok := e.Terminal(move); ok {
+			return -score
+		}
+
 		// Skip non-captures.
 		// TODO: also skip bad captures, e.g. QxP.
 		if !Occupied(e.board, move.To()) {
@@ -232,11 +253,11 @@ func (e *Engine) Quiesce(alpha, beta int16) int16 {
 // Gets the principal variation by recursively following the best moves in the
 // transposition table.
 func (e *Engine) PrincipalVariation(bestMove dragon.Move, depth int) []dragon.Move {
-	if depth == 0 {
+	if depth == 0 || !e.legal(bestMove) {
 		return nil
 	}
 
-	unmove := e.board.Apply(bestMove)
+	unmove := e.Move(bestMove)
 	defer unmove()
 
 	if entry, ok := e.table.Get(e.board.Hash()); ok {
@@ -248,14 +269,40 @@ func (e *Engine) PrincipalVariation(bestMove dragon.Move, depth int) []dragon.Mo
 func (e *Engine) PVMove() (dragon.Move, bool) {
 	entry, ok := e.table.Get(e.board.Hash())
 	return entry.best, ok
-
 }
 
-func (e *Engine) GenMoves() []dragon.Move {
+// GenMoves generates legal moves and reports whether the side to move is in check.
+func (e *Engine) GenMoves() ([]dragon.Move, bool) {
 	if e.Threefold() {
-		return nil
+		return nil, false
 	}
 	return e.board.GenerateLegalMoves()
+}
+
+func (e *Engine) legal(move dragon.Move) bool {
+	moves, _ := e.GenMoves()
+	for _, m := range moves {
+		if m == move {
+			return true
+		}
+	}
+	return false
+}
+
+// Terminal gets the score at terminal nodes.
+func (e *Engine) Terminal(move dragon.Move) (int16, bool) {
+	unmove := e.Move(move)
+	defer unmove()
+
+	moves, inCheck := e.GenMoves()
+	if len(moves) > 0 {
+		return 0, false
+	}
+
+	if inCheck {
+		return -mateVal - e.ply, true
+	}
+	return drawVal, true
 }
 
 // Sort moves using cheap heuristics, e.g. search captures and promotions before other moves.
@@ -321,7 +368,7 @@ const maxMate = 400
 // Converts an eval score into ply till mate. Returns 0 if not mating.
 func (e *Engine) mateScore(score int16) int16 {
 	var mate int16
-	plyTillMate := abs(mateVal) - abs(score)
+	plyTillMate := abs(mateVal) - abs(score) - e.ply
 	if plyTillMate < maxMate {
 		mate = plyTillMate / 2
 

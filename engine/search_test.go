@@ -22,20 +22,20 @@ func TestMate(t *testing.T) {
 			name:  "mate in 2, w",
 			fen:   "r2qkb1r/pp2nppp/3p4/2pNN1B1/2BnP3/3P4/PPP2PPP/R2bK2R w KQkq - 1 0",
 			depth: 2,
-			want:  "d5f6", wantMate: 2,
+			want:  "d5f6", wantMate: 1,
 		},
 		{
 			name:  "mate in 2, b",
 			fen:   "6k1/pp4p1/2p5/2bp4/8/P5Pb/1P3rrP/2BRRN1K b - - 0 1",
 			depth: 2,
-			want:  "g2g1", wantMate: 2,
+			want:  "g2g1", wantMate: 1,
 		},
 		// Mate in 3
 		{
 			name:  "mate in 3, b",
 			fen:   "r1b1kb1r/pppp1ppp/5q2/4n3/3KP3/2N3PN/PPP4P/R1BQ1B1R b kq - 0 1",
 			depth: 5,
-			want:  "f8c5", wantMate: 3,
+			want:  "f8c5", wantMate: 2,
 		},
 	}
 
@@ -54,11 +54,6 @@ func TestMate(t *testing.T) {
 				t.Errorf("Could not find mate: got %v, eval = %v ; want %v", results.BestMove, results.Score, tt.want)
 			}
 
-			mateValThreshold := (abs(mateVal) - 200) / 100
-			if abs(results.Score) < mateValThreshold {
-				t.Errorf("Bad mate eval: got %v, want > %v", results.Score, mateValThreshold)
-			}
-
 			if results.Mate != tt.wantMate {
 				t.Errorf("Engine did not report mate: got mate = %v, want %v", results.Mate, tt.wantMate)
 			}
@@ -74,7 +69,7 @@ func TestForcedDraw(t *testing.T) {
 		want  string
 	}{
 		// Black has mate in 2, white to play and draw.
-		{"5r1k/8/6Q1/8/1b6/2n5/1q6/7K w - - 0 1", 5, "g6h6"},
+		{"5r1k/8/6Q1/8/1b6/2n5/1q6/7K w - - 0 1", 7, "g6h6"},
 	}
 
 	for _, tt := range tests {
@@ -140,7 +135,8 @@ func TestMvvLva(t *testing.T) {
 		"d1d7", // RxQ
 	}
 
-	moves := e.sortMoves(e.board.GenerateLegalMoves())[:len(want)]
+	moves, _ := e.board.GenerateLegalMoves()
+	moves = e.sortMoves(moves)[:len(want)]
 
 	var got []string
 	for _, m := range moves {

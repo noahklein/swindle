@@ -1,15 +1,16 @@
 package engine
 
 import (
-	"unsafe"
+	"sync"
 
 	"github.com/noahklein/dragon"
 )
 
-const MB = 1 << 20
-const size = unsafe.Sizeof(Entry{})
+// const MB = 1 << 20
+// const size = unsafe.Sizeof(Entry{})
 
-const tableSize uint64 = uint64(100 * MB / size)
+// const tableSize uint64 = uint64(100 * MB / size)
+const tableSize uint64 = 0xFFFFF
 
 type NodeType uint8
 
@@ -30,10 +31,9 @@ type Entry struct {
 
 // Table is a transposition table (TT); used to memoize searched positions. TTs add
 // search-instability.
-// TODO: Make goroutine-safe. This can be done locklessly, but we'll have to verify the
-// result after reading; potentially dangerous.
 type Table struct {
-	table [tableSize]Entry
+	sync.Mutex // TODO: this can be done locklessly.
+	table      [tableSize]Entry
 }
 
 func NewTable() *Table {
@@ -42,8 +42,13 @@ func NewTable() *Table {
 	}
 }
 
+func key(hash uint64) uint64 { return hash % tableSize }
+
 func (t *Table) Get(hash uint64) (Entry, bool) {
-	e := t.table[hash%tableSize]
+	t.Lock()
+	defer t.Unlock()
+
+	e := t.table[key(hash)]
 	return e, e.key == hash
 }
 
@@ -69,6 +74,47 @@ func (t *Table) GetEval(hash uint64, depth int, alpha, beta int16) (int16, NodeT
 }
 
 func (t *Table) Add(e Entry) {
-	key := e.key % tableSize
-	t.table[key] = e
+	t.Lock()
+	defer t.Unlock()
+
+	t.table[key(e.key)] = e
+}
+
+// History is a list of board hashes seen at each ply.
+type History struct {
+	positions [300]uint64
+}
+
+func (hst *History) Threefold(hash uint64, ply int16, halfMoveClock uint8) bool {
+	if halfMoveClock < 6 {
+		return false
+	}
+
+	var count uint8
+	positions := hst.positions[ply-int16(halfMoveClock+1) : ply+1]
+
+	for _, h := range positions {
+		if h != hash {
+			continue
+		}
+
+		count++
+		// fmt.Println("history", hst.positions)
+		// fmt.Println(positions)
+		// fmt.Println(ply, -halfMoveClock)
+		// fmt.Println(ply, halfMoveClock, count)
+		if count == 3 {
+			return true
+		}
+	}
+	return false
+}
+
+func (hst *History) Add(hash uint64, ply int16) { hst.positions[ply] = hash }
+func (hst *History) Remove(ply int16)           { hst.positions[ply] = 0 }
+
+func (hst *History) Copy() *History {
+	var c History
+	c.positions = hst.positions
+	return &c
 }

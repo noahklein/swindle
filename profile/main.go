@@ -70,7 +70,7 @@ func playGame(fen string, depth int) uci.SearchResults {
 	e.Debug(false)
 
 	var finalResults uci.SearchResults
-	for len(e.GenMoves()) > 0 {
+	for moves, _ := e.GenMoves(); len(moves) > 0; moves, _ = e.GenMoves() {
 		results := e.Go(uci.SearchParams{
 			Depth: depth,
 		})

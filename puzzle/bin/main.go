@@ -10,6 +10,7 @@ import (
 	"github.com/noahklein/chess/engine"
 	"github.com/noahklein/chess/puzzle"
 	"github.com/noahklein/chess/uci"
+	"github.com/noahklein/dragon"
 
 	"github.com/fatih/color"
 )
@@ -39,9 +40,6 @@ func main() {
 		if *id != "" {
 			return p.ID == *id
 		}
-		if contains(p.Themes, "matein1") {
-			return false // Mate-in-1 puzzles have multiple solutions.
-		}
 		if *tag != "" && !contains(p.Themes, *tag) {
 			return false
 		}
@@ -54,7 +52,7 @@ func main() {
 	start := time.Now()
 
 	var e engine.Engine
-	for j, p := range puzzles {
+	for pNum, p := range puzzles {
 		e.NewGame()
 		e.Position(p.Fen, nil)
 		e.Debug(false)
@@ -69,13 +67,29 @@ func main() {
 			})
 
 			if result.BestMove != want {
+				failed = true
+
+				// Check mate (alternate solution.)
+				m, err := dragon.ParseMove(result.BestMove)
+				if err != nil {
+					panic(err)
+				}
+				e.Move(m)
+
+				moves, inCheck := e.GenMoves()
+				if inCheck && len(moves) == 0 {
+					movesCompleted += "."
+					color.Yellow("%3d) Passed %s %s (alternate solution)", pNum+1, p.ID, movesCompleted)
+					break
+				}
+
 				correct--
 				movesCompleted += "x"
-				color.Red("%3d) Failed %s %s", j+1, p.ID, movesCompleted)
+				color.Red("%3d) Failed %s %s", pNum+1, p.ID, movesCompleted)
 				lichess := fmt.Sprintf("https://lichess.org/analysis/fromPosition/%v", p.Fen)
 				color.Red(strings.ReplaceAll(lichess, " ", "_"))
 				color.Red("%v %v", p.Rating, strings.Join(p.Themes, ", "))
-				color.Red(`Wrong move: got %v, want %v`, result.BestMove, p.Moves)
+				color.Red(`Wrong move: got %v, want %v, %v`, result.BestMove, want, p.Moves)
 
 				failed = true
 				break
@@ -83,7 +97,7 @@ func main() {
 			movesCompleted += "."
 		}
 		if !failed {
-			color.Green("%3d) Passed %s %s", j+1, p.ID, movesCompleted)
+			color.Green("%3d) Passed %s %s", pNum+1, p.ID, movesCompleted)
 		}
 	}
 
