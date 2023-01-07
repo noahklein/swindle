@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/noahklein/chess/elo"
 	"github.com/noahklein/chess/engine"
 	"github.com/noahklein/chess/puzzle"
 	"github.com/noahklein/chess/uci"
@@ -16,10 +17,12 @@ import (
 )
 
 var (
-	tag   = flag.String("tag", "", "tag filter")
-	id    = flag.String("id", "", "id filter")
-	limit = flag.Int("limit", 10, "limit the number of puzzles; 0 for all (not recommended)")
-	depth = flag.Int("depth", 4, "depth to search puzzles at")
+	tag    = flag.String("tag", "", "tag filter")
+	id     = flag.String("id", "", "id filter")
+	limit  = flag.Int("limit", 10, "limit the number of puzzles; 0 for all (not recommended)")
+	depth  = flag.Int("depth", 4, "depth to search puzzles at")
+	rating = flag.Int("rating", 0, "minimum rating of puzzles")
+	length = flag.Int("length", 0, "puzzle length filter, must be even; 0 for all")
 
 	tsearch = flag.String("tsearch", "", "search for tags")
 )
@@ -43,6 +46,12 @@ func main() {
 		if *tag != "" && !contains(p.Themes, *tag) {
 			return false
 		}
+		if *length != 0 && len(p.Moves) != *length {
+			return false
+		}
+		if p.Rating < *rating {
+			return false
+		}
 		return true
 	})
 
@@ -50,6 +59,8 @@ func main() {
 
 	correct := len(puzzles)
 	start := time.Now()
+
+	rating := elo.Default
 
 	var e engine.Engine
 	for pNum, p := range puzzles {
@@ -96,15 +107,19 @@ func main() {
 			}
 			movesCompleted += "."
 		}
+		score := 0
 		if !failed {
 			color.Green("%3d) Passed %s %s", pNum+1, p.ID, movesCompleted)
+			score = 1
 		}
+		rating, _ = elo.Rating(rating, p.Rating, float64(score))
 	}
 
 	fmt.Println()
 	fmt.Println("========================")
 	fmt.Printf("Answered %v/%v puzzles correctly\n", correct, len(puzzles))
-	fmt.Printf("Elapsed: %v\n", time.Since(start))
+	fmt.Println("Elapsed:", time.Since(start))
+	fmt.Println("Rating:", rating)
 
 }
 
