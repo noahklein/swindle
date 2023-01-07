@@ -6,10 +6,10 @@ import (
 	"github.com/fatih/color"
 )
 
-// Not thread-safe.
+// NodeCount tracks useful stats for reporting. Not thread-safe.
 type NodeCount struct {
 	nodes, qNodes int
-	maxPly        int16
+	maxPly        int16 // For reporting max depth.
 }
 
 func (nc *NodeCount) Inc()          { nc.nodes++ }

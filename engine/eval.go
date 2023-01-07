@@ -12,7 +12,10 @@ const (
 	bishopVal = 330
 	rookVal   = 500
 	queenVal  = 900
+	kingVal   = queenVal * 2
 )
+
+var PieceValue = [...]int16{0, pawnVal, knightVal, bishopVal, rookVal, queenVal, kingVal}
 
 // How much to increment the game phase counter for each piece type.
 var gamePhaseInc = [...]int16{0, 1, 1, 2, 4, 0}
@@ -51,8 +54,26 @@ func Eval(board *dragon.Board) int16 {
 	egWeight := 24 - mgWeight
 
 	material := pieceEval(&board.White) - pieceEval(&board.Black)
+	material = materialWeight(material)
+
 	phaseScore := (mg*mgWeight + eg*egWeight) / 24
 	return whiteToMove(board) * (material + phaseScore)
+}
+
+func materialWeight(n int16) int16 { return n / 2 }
+
+// Number from 0 to 24 indicating how much material is on the board.
+func materialCount(b *dragon.Board) int16 {
+	var phase int16
+	for sq := uint8(0); sq < 64; sq++ {
+		piece, _ := dragon.GetPieceType(sq, b)
+		if piece == dragon.Nothing {
+			continue
+		}
+
+		phase += gamePhaseInc[piece-1]
+	}
+	return min(phase, 24)
 }
 
 func pieceEval(b *dragon.Bitboards) int16 {
@@ -62,6 +83,33 @@ func pieceEval(b *dragon.Bitboards) int16 {
 		bits.OnesCount64(b.Rooks)*rookVal +
 		bits.OnesCount64(b.Queens)*queenVal
 	return int16(score)
+}
+
+func badCapture(attacker, victim int) bool {
+	// Pawn captures don't lose material.
+	if attacker == dragon.Pawn {
+		return false
+	}
+
+	attVal, vicVal := PieceValue[attacker], PieceValue[victim]
+	return vicVal < attVal-pawnVal/2
+}
+
+const maxMate = 400
+
+// Converts an eval score into ply till mate. Returns 0 if not mating.
+func mateScore(score int16, ply int16) int16 {
+	var mate int16
+	plyTillMate := -mateVal - abs(score) - ply
+	if plyTillMate < maxMate {
+		mate = plyTillMate / 2
+
+		if score < 0 {
+			mate = -mate
+		}
+	}
+
+	return mate
 }
 
 // TODO: make branchless.

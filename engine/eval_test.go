@@ -23,6 +23,23 @@ func TestEval(t *testing.T) {
 	}
 }
 
+func TestMateScore(t *testing.T) {
+	tests := []struct {
+		score, ply, want int16
+	}{
+		{-(mateVal + 40), 30, 5},
+		{-(mateVal + 41), 30, 5},
+		{(mateVal + 20), 15, -2},
+		{(mateVal + 20), 16, -2},
+	}
+
+	for _, tt := range tests {
+		if got := mateScore(tt.score, tt.ply); got != tt.want {
+			t.Errorf("Wrong score: mateScore(%v, %v) = %v, want %v", tt.score, tt.ply, got, tt.want)
+		}
+	}
+}
+
 var result int16
 
 func BenchmarkEval(b *testing.B) {

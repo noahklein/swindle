@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	name    = "Cheese"
+	name    = "Swindle"
 	author  = "Noah Klein"
 	version = "1.0"
 
@@ -18,15 +18,16 @@ const (
 
 // The chess engine. Must call NewGame() to initialize, followed by Position().
 type Engine struct {
-	killer  *Killer
-	table   *Table
-	board   *dragon.Board
-	history *History
-	ply     int16
-	cancel  func()
+	board *dragon.Board
+	ply   int16
+
+	transpositions *Transpositions
+	killer         *Killer
+	history        *History
 
 	nodeCount NodeCount
 	debug     bool // Enables logs/metrics.
+	cancel    func()
 }
 
 func (e *Engine) About() (string, string, string) {
@@ -37,7 +38,7 @@ func (e *Engine) NewGame() {
 	board := dragon.ParseFen(dragon.Startpos)
 	e.killer = NewKiller()
 	e.board = &board
-	e.table = NewTable()
+	e.transpositions = NewTable()
 	e.nodeCount = NodeCount{}
 	e.history = &History{}
 	e.ply = 1
@@ -50,19 +51,20 @@ func (e *Engine) Copy() *Engine {
 	board := *e.board
 
 	return &Engine{
-		killer:  e.killer,
-		table:   e.table,
-		board:   &board,
-		history: e.history.Copy(),
-		ply:     e.ply,
-		cancel:  e.cancel,
-		debug:   e.debug,
+		killer:         e.killer,
+		transpositions: e.transpositions,
+		board:          &board,
+		history:        e.history.Copy(),
+		ply:            e.ply,
+		cancel:         e.cancel,
+		debug:          e.debug,
 	}
 }
 
 func (e *Engine) Position(fen string, moves []string) {
 	board := dragon.ParseFen(fen)
 	e.board = &board
+	e.ply = int16(e.board.Fullmoveno * 2)
 	e.history.Add(board.Hash())
 	for _, move := range moves {
 		m, err := dragon.ParseMove(move)
@@ -101,6 +103,7 @@ func (e *Engine) Move(m dragon.Move) func() {
 	}
 }
 
+// Threefold checks for threefold repetitions.
 func (e *Engine) Threefold() bool {
 	return e.history.Threefold(e.board.Hash(), e.ply, e.board.Halfmoveclock)
 }

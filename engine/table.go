@@ -29,22 +29,22 @@ type Entry struct {
 	best  dragon.Move
 }
 
-// Table is a transposition table (TT); used to memoize searched positions. TTs add
+// Transpositions is a transposition table (TT); used to memoize searched positions. TTs add
 // search-instability.
-type Table struct {
+type Transpositions struct {
 	sync.Mutex // TODO: this can be done locklessly.
 	table      [tableSize]Entry
 }
 
-func NewTable() *Table {
-	return &Table{
+func NewTable() *Transpositions {
+	return &Transpositions{
 		table: [tableSize]Entry{},
 	}
 }
 
 func key(hash uint64) uint64 { return hash % tableSize }
 
-func (t *Table) Get(hash uint64) (Entry, bool) {
+func (t *Transpositions) Get(hash uint64) (Entry, bool) {
 	t.Lock()
 	defer t.Unlock()
 
@@ -52,7 +52,7 @@ func (t *Table) Get(hash uint64) (Entry, bool) {
 	return e, e.key == hash
 }
 
-func (t *Table) GetEval(hash uint64, depth int, alpha, beta int16) (int16, NodeType) {
+func (t *Transpositions) GetEval(hash uint64, depth int, alpha, beta int16) (int16, NodeType) {
 	// TODO: Need to detect repetitions before enabling tt.
 	// return 0, NodeUnknown
 
@@ -73,7 +73,8 @@ func (t *Table) GetEval(hash uint64, depth int, alpha, beta int16) (int16, NodeT
 	return 0, NodeUnknown
 }
 
-func (t *Table) Add(e Entry) {
+func (t *Transpositions) Add(ply int16, e Entry) {
+	e.value = min(max(mateVal, e.value), -mateVal)
 	t.Lock()
 	defer t.Unlock()
 
@@ -85,19 +86,21 @@ type History struct {
 	positions []uint64
 }
 
+// Threefold checks for threefold repetitions.
 func (hst *History) Threefold(hash uint64, ply int16, halfMoveClock uint8) bool {
-	if halfMoveClock < 6 {
+	if halfMoveClock < 8 {
 		return false
 	}
 
 	var count uint8
-	positions := hst.positions[ply-int16(halfMoveClock+1) : ply]
+	start := min(0, ply-int16(halfMoveClock+1))
+	pos := hst.positions[start:]
 
-	for _, h := range positions {
-		if h != hash {
+	// Repetitions can only occur every 4th position.
+	for i := 0; i < len(pos); i += 4 {
+		if pos[i] != hash {
 			continue
 		}
-
 		count++
 		if count == 3 {
 			return true
