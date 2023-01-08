@@ -4,6 +4,7 @@ package uci
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -11,6 +12,8 @@ import (
 )
 
 const startingFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
+var errExit = errors.New("exit command received")
 
 type Engine interface {
 	About() (name string, author string, version string)
@@ -34,7 +37,9 @@ func Run(engine Engine) {
 			return
 		}
 
-		if err := handle(engine, input); err != nil {
+		if err := handle(engine, input); err == errExit {
+			return
+		} else if err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -81,6 +86,14 @@ func handle(engine Engine, input string) error {
 		engine.Stop()
 	case "ponderhit":
 	case "debug":
+	case "exit":
+		return errExit
+
+		// Custom commands for debugging.
+	case "start":
+		handle(engine, "uci")
+		handle(engine, "ucinewgame")
+		handle(engine, "position startpos moves e2e4")
 	}
 
 	return nil

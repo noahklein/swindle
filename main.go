@@ -12,8 +12,7 @@ func main() {
 	// go func() {
 	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
 	// }()
-	e := &engine.Engine{}
 
-	uci.Run(e)
-
+	var e engine.Engine
+	uci.Run(&e)
 }

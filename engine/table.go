@@ -34,6 +34,7 @@ type Entry struct {
 type Transpositions struct {
 	sync.Mutex // TODO: this can be done locklessly.
 	table      [tableSize]Entry
+	size       uint64
 }
 
 func NewTable() *Transpositions {
@@ -43,6 +44,16 @@ func NewTable() *Transpositions {
 }
 
 func key(hash uint64) uint64 { return hash % tableSize }
+
+func (t *Transpositions) Add(ply int16, e Entry) {
+	e.value = min(max(mateVal, e.value), -mateVal)
+
+	t.Lock()
+	defer t.Unlock()
+
+	t.size++
+	t.table[key(e.key)] = e
+}
 
 func (t *Transpositions) Get(hash uint64) (Entry, bool) {
 	t.Lock()
@@ -73,12 +84,8 @@ func (t *Transpositions) GetEval(hash uint64, depth int, alpha, beta int16) (int
 	return 0, NodeUnknown
 }
 
-func (t *Transpositions) Add(ply int16, e Entry) {
-	e.value = min(max(mateVal, e.value), -mateVal)
-	t.Lock()
-	defer t.Unlock()
-
-	t.table[key(e.key)] = e
+func (t *Transpositions) PermillFull() int {
+	return int(1000 * float64(t.size) / float64(tableSize))
 }
 
 // History is a list of board hashes seen at each ply.
@@ -86,9 +93,15 @@ type History struct {
 	positions []uint64
 }
 
-// Threefold checks for threefold repetitions.
-func (hst *History) Threefold(hash uint64, ply int16, halfMoveClock uint8) bool {
+// Draw checks for threefold repetitions and the fifty-move rule. The halfmove clock is
+// reset whenever an irreversible move is made, i.e. pawn moves, captures, castling, and
+// moves that lose castling rights.
+func (hst *History) Draw(hash uint64, ply int16, halfMoveClock uint8) bool {
+	if halfMoveClock >= 50 {
+		return true
+	}
 	if halfMoveClock < 8 {
+		// Not enough moves for there to be a repetition.
 		return false
 	}
 
@@ -109,10 +122,10 @@ func (hst *History) Threefold(hash uint64, ply int16, halfMoveClock uint8) bool 
 	return false
 }
 
-func (hst *History) Add(hash uint64) {
+func (hst *History) Push(hash uint64) {
 	hst.positions = append(hst.positions, hash)
 }
-func (hst *History) Remove() {
+func (hst *History) Pop() {
 	hst.positions = hst.positions[:len(hst.positions)-1]
 }
 

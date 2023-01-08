@@ -77,11 +77,11 @@ func main() {
 				Depth: *depth,
 			})
 
-			if result.BestMove != want {
+			if result.Move != want {
 				failed = true
 
 				// Check mate (alternate solution.)
-				m, err := dragon.ParseMove(result.BestMove)
+				m, err := dragon.ParseMove(result.Move)
 				if err != nil {
 					panic(err)
 				}
@@ -100,7 +100,7 @@ func main() {
 				lichess := fmt.Sprintf("https://lichess.org/analysis/fromPosition/%v", p.Fen)
 				color.Red(strings.ReplaceAll(lichess, " ", "_"))
 				color.Red("%v %v", p.Rating, strings.Join(p.Themes, ", "))
-				color.Red(`Wrong move: got %v, want %v, %v`, result.BestMove, want, p.Moves)
+				color.Red(`Wrong move: got %v, want %v, %v`, result.Move, want, p.Moves)
 
 				failed = true
 				break

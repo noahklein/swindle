@@ -42,8 +42,10 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 		// TODO: investigate mysterious node counts.
 		nodes, qNodes int
 		maxDepth      int16
+		results       uci.SearchResults
 	)
 
+	// Search each root-level move in parallel.
 	var wg sync.WaitGroup
 	for _, move := range moves {
 		// Capture variables for goroutine.
@@ -54,41 +56,47 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 			defer wg.Done()
 			e.nodeCount.Inc()
 
+			start := time.Now()
+
 			unmove := e.Move(move)
-			defer unmove()
 			score := e.IterDeep(ctx, params.Depth)
+			unmove()
 
 			bestMu.Lock()
 			defer bestMu.Unlock()
 			if score >= bestScore {
-				e.Print("move %s: %v", move.String(), score)
 				bestScore = score
 				bestMove = move
+
+				var pv []string
+				for _, m := range e.PrincipalVariation(bestMove, 10) {
+					pv = append(pv, m.String())
+				}
 
 				nodes += e.nodeCount.nodes
 				qNodes += e.nodeCount.qNodes
 				maxDepth = max(maxDepth, e.nodeCount.maxPly-e.ply)
+
+				results = uci.SearchResults{
+					Move:           bestMove.String(),
+					Score:          float32(bestScore),
+					Mate:           mateScore(bestScore, e.ply),
+					Nodes:          int(nodes),
+					Hashfull:       e.transpositions.PermillFull(),
+					PV:             pv,
+					Depth:          int(maxDepth),
+					SelectiveDepth: params.Depth,
+				}
+				e.Logf(results.Print(time.Since(start)))
 			}
 		}()
 	}
 	wg.Wait()
 
-	var pv []string
-	for _, move := range e.PrincipalVariation(bestMove, 5) {
-		pv = append(pv, move.String())
-	}
-
 	pctQuiescent := 100 * float32(qNodes) / float32(nodes)
-	e.Print("%v / %v = %v%% Quiescenct nodes", qNodes, nodes, pctQuiescent)
+	e.Warn("%v / %v = %v%% Quiescenct nodes\n", qNodes, nodes, pctQuiescent)
 
-	return uci.SearchResults{
-		BestMove: bestMove.String(),
-		Score:    float32(bestScore) / 100,
-		Mate:     mateScore(bestScore, e.ply),
-		Nodes:    int(nodes),
-		PV:       pv,
-		Depth:    int(maxDepth),
-	}
+	return results
 }
 
 // Iterative deepening with aspiration window. After each iteration we use the eval
@@ -98,6 +106,7 @@ func (e *Engine) IterDeep(ctx context.Context, maxDepth int) int16 {
 	var score int16
 	alpha, beta := -infinity, infinity
 	const window = pawnVal / 2
+	var exp = 1
 
 	for depth := 0; depth <= maxDepth; {
 		if ctx.Err() != nil {
@@ -107,6 +116,9 @@ func (e *Engine) IterDeep(ctx context.Context, maxDepth int) int16 {
 		score = -e.AlphaBeta(-beta, -alpha, depth)
 		// Eval outside of aspiration window, re-search at same depth with wider window.
 		if score <= alpha || score >= beta {
+			alpha -= window * (1 << exp)
+			beta += window * (1 << exp)
+			exp++
 			alpha, beta = -infinity, infinity
 			continue
 		}
@@ -117,6 +129,7 @@ func (e *Engine) IterDeep(ctx context.Context, maxDepth int) int16 {
 
 		// Eval inside of window.
 		alpha, beta = score-window, score+window
+		exp = 1
 		depth++
 	}
 
@@ -132,7 +145,7 @@ func (e *Engine) IterDeep(ctx context.Context, maxDepth int) int16 {
 func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 	e.nodeCount.Inc()
 
-	if e.Threefold() {
+	if e.Draw() {
 		return drawVal
 	}
 
@@ -220,7 +233,7 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 // Quiescent search avoids the "horizon effect."
 // Note: 50%-90% of nodes searched are here, pruning goes a long way.
 func (e *Engine) Quiesce(alpha, beta int16) int16 {
-	if e.Threefold() {
+	if e.Draw() {
 		return drawVal
 	}
 
@@ -231,16 +244,15 @@ func (e *Engine) Quiesce(alpha, beta int16) int16 {
 	}
 	// Delta pruning: test if alpha can be improved by greatest material swing. If not,
 	// this node is hopeless.
-	// if score < alpha-queenVal {
-	// 	return alpha
-	// }
-
-	if alpha < score {
-		alpha = score
+	if score < alpha-queenVal {
+		return alpha
 	}
+
+	alpha = max(alpha, score)
 
 	// TODO: handle checks specially.
 	moves, _ := e.GenMoves()
+
 	var loudMoves []dragon.Move
 	for _, move := range moves {
 		if score, ok := e.Terminal(move); ok {
@@ -275,9 +287,8 @@ func (e *Engine) Quiesce(alpha, beta int16) int16 {
 			e.killer.Add(e.ply, move)
 			return beta
 		}
-		if score > alpha {
-			alpha = score
-		}
+
+		alpha = max(score, alpha)
 	}
 
 	return alpha
@@ -293,8 +304,11 @@ func (e *Engine) PrincipalVariation(bestMove dragon.Move, depth int) []dragon.Mo
 	unmove := e.Move(bestMove)
 	defer unmove()
 
-	if entry, ok := e.transpositions.Get(e.board.Hash()); ok {
-		return append([]dragon.Move{bestMove}, e.PrincipalVariation(entry.best, depth-1)...)
+	if nextMove, ok := e.PVMove(); ok {
+		return append(
+			[]dragon.Move{bestMove},
+			e.PrincipalVariation(nextMove, depth-1)...,
+		)
 	}
 	return []dragon.Move{bestMove}
 }
@@ -306,7 +320,7 @@ func (e *Engine) PVMove() (dragon.Move, bool) {
 
 // GenMoves generates legal moves and reports whether the side to move is in check.
 func (e *Engine) GenMoves() ([]dragon.Move, bool) {
-	if e.Threefold() {
+	if e.Draw() {
 		return nil, false
 	}
 	return e.board.GenerateLegalMoves()

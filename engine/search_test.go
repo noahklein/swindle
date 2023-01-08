@@ -50,8 +50,8 @@ func TestMate(t *testing.T) {
 				Depth: tt.depth,
 			})
 
-			if results.BestMove != tt.want {
-				t.Errorf("Could not find mate: got %v, eval = %v ; want %v", results.BestMove, results.Score, tt.want)
+			if results.Move != tt.want {
+				t.Errorf("Could not find mate: got %v, eval = %v ; want %v", results.Move, results.Score, tt.want)
 			}
 
 			if results.Mate != tt.wantMate {
@@ -85,8 +85,8 @@ func TestForcedDraw(t *testing.T) {
 				Depth: tt.depth,
 			})
 
-			if results.BestMove != tt.want {
-				t.Errorf("Could not find forced draw: got %v, eval = %v ; want %v", results.BestMove, results.Score, tt.want)
+			if results.Move != tt.want {
+				t.Errorf("Could not find forced draw: got %v, eval = %v ; want %v", results.Move, results.Score, tt.want)
 			}
 
 			// TODO: fix draw evaluation.
@@ -169,7 +169,7 @@ func TestThreefold(t *testing.T) {
 
 	var unmove func()
 	for _, m := range moves {
-		if e.Threefold() {
+		if e.Draw() {
 			t.Errorf("False threefold reported after move %v", m)
 		}
 
@@ -180,12 +180,12 @@ func TestThreefold(t *testing.T) {
 		unmove = e.Move(move)
 	}
 
-	if !e.Threefold() {
+	if !e.Draw() {
 		t.Error("Threefold not reported after final move")
 	}
 	unmove()
 
-	if e.Threefold() {
+	if e.Draw() {
 		t.Error("False threefold reported after unmove")
 	}
 }
@@ -197,14 +197,14 @@ func BenchmarkSearchD4(b *testing.B) { benchmarkSearch(4, b) }
 func BenchmarkSearchD5(b *testing.B) { benchmarkSearch(5, b) }
 
 func benchmarkSearch(depth int, b *testing.B) {
+	var e Engine
+	e.NewGame()
+	e.Position(dragon.Startpos, nil)
+	e.Debug(false)
+
+	ctx := context.Background()
+
 	for n := 0; n < b.N; n++ {
-		var e Engine
-		e.NewGame()
-		e.Position(dragon.Startpos, nil)
-		e.Debug(false)
-
-		ctx := context.Background()
-
 		e.Search(ctx, uci.SearchParams{
 			Depth: depth,
 		})

@@ -25,9 +25,16 @@ func (e *Engine) Debug(isOn bool) {
 	e.debug = isOn
 }
 
-func (e *Engine) Print(s string, a ...any) {
+func (e *Engine) Logf(s string, a ...any) {
 	if e.debug {
-		fmt.Printf("info string "+s+"\n", a...)
+		fmt.Printf("info "+s+"\n", a...)
+	}
+}
+
+func (e *Engine) Warn(s string, a ...any) {
+	if e.debug {
+		color.Yellow(s, a...)
+
 	}
 }
 

@@ -13,14 +13,14 @@ const (
 	author  = "Noah Klein"
 	version = "1.0"
 
-	depth = 5
+	depth = 6
 )
 
 // The chess engine. Must call NewGame() to initialize, followed by Position().
 type Engine struct {
 	board *dragon.Board
-	ply   int16
 
+	ply            int16
 	transpositions *Transpositions
 	killer         *Killer
 	history        *History
@@ -65,7 +65,7 @@ func (e *Engine) Position(fen string, moves []string) {
 	board := dragon.ParseFen(fen)
 	e.board = &board
 	e.ply = int16(e.board.Fullmoveno * 2)
-	e.history.Add(board.Hash())
+	e.history.Push(board.Hash())
 	for _, move := range moves {
 		m, err := dragon.ParseMove(move)
 		if err != nil {
@@ -73,9 +73,11 @@ func (e *Engine) Position(fen string, moves []string) {
 		}
 		e.Move(m)
 	}
+
+	e.Warn("Position set")
 }
 
-// Entry-point, called by the UCI go command.
+// Go is the search entry-point, called by the UCI go command.
 func (e *Engine) Go(info uci.SearchParams) uci.SearchResults {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -84,6 +86,9 @@ func (e *Engine) Go(info uci.SearchParams) uci.SearchResults {
 	if info.Depth == 0 {
 		info.Depth = depth
 	}
+	if info.Infinite {
+		info.Depth = 100
+	}
 
 	return e.Search(ctx, info)
 }
@@ -91,21 +96,20 @@ func (e *Engine) Go(info uci.SearchParams) uci.SearchResults {
 // Make a move on the board. Returns an unmove callback.
 func (e *Engine) Move(m dragon.Move) func() {
 	unapply := e.board.Apply(m)
-	hash := e.board.Hash()
-	e.history.Add(hash)
+	e.history.Push(e.board.Hash())
 	e.ply++
 	e.nodeCount.Ply(e.ply)
 
 	return func() {
 		unapply()
 		e.ply--
-		e.history.Remove()
+		e.history.Pop()
 	}
 }
 
-// Threefold checks for threefold repetitions.
-func (e *Engine) Threefold() bool {
-	return e.history.Threefold(e.board.Hash(), e.ply, e.board.Halfmoveclock)
+// Draw checks for threefold repetitions.
+func (e *Engine) Draw() bool {
+	return e.history.Draw(e.board.Hash(), e.ply, e.board.Halfmoveclock)
 }
 
 func (e *Engine) Stop() {

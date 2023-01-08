@@ -30,10 +30,15 @@ func init() {
 
 func main() {
 	if *profile {
+		fmt.Println(`To get a profile run:
+    go tool pprof -top http://localhost:6060/debug/pprof/profile
+	`)
 		go func() {
 			log.Println(http.ListenAndServe("localhost:6060", nil))
 		}()
 	}
+
+	fmt.Println("Playing full games at increasing depths:")
 
 	var (
 		headerColor   = color.New(color.FgGreen, color.Underline).SprintfFunc()
@@ -55,7 +60,8 @@ func main() {
 			results.Nodes,
 			fmt.Sprintf("%v/s", nps),
 		)
-		fmt.Printf("Finished depth %v in %v\n", depth, time.Since(start))
+		color.Green("Finished depth %v in %v", depth, time.Since(start))
+
 		time.Sleep(1 * time.Second)
 	}
 
@@ -69,13 +75,15 @@ func playGame(fen string, depth int) uci.SearchResults {
 	e.Position(fen, nil)
 	e.Debug(false)
 
+	var i int
 	var finalResults uci.SearchResults
 	for moves, _ := e.GenMoves(); len(moves) > 0; moves, _ = e.GenMoves() {
+		i++
 		results := e.Go(uci.SearchParams{
 			Depth: depth,
 		})
 
-		move, err := dragon.ParseMove(results.BestMove)
+		move, err := dragon.ParseMove(results.Move)
 		if err != nil {
 			panic(err)
 		}
@@ -83,6 +91,11 @@ func playGame(fen string, depth int) uci.SearchResults {
 
 		results.Nodes += finalResults.Nodes
 		finalResults = results
+
+		if i > 100 {
+			color.Yellow("Depth %d: 100 moves made, aborting game", depth)
+			break
+		}
 	}
 	return finalResults
 }
