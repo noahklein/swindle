@@ -21,7 +21,11 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 	e.nodeCount.Reset()
 
 	// TODO: Smarter time management; look at remaining clock.
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	thinkTime := 30 * time.Second
+	if params.Infinite {
+		thinkTime = 1 * time.Hour
+	}
+	ctx, cancel := context.WithTimeout(ctx, thinkTime)
 	defer cancel()
 
 	moves, _ := e.GenMoves()
@@ -106,6 +110,7 @@ func (e *Engine) IterDeep(ctx context.Context, maxDepth int) int16 {
 	var score int16
 	alpha, beta := -infinity, infinity
 	const window = pawnVal / 2
+	// Exponentially expand window, on window misses.
 	var exp = 1
 
 	for depth := 0; depth <= maxDepth; {
@@ -115,11 +120,13 @@ func (e *Engine) IterDeep(ctx context.Context, maxDepth int) int16 {
 
 		score = -e.AlphaBeta(-beta, -alpha, depth)
 		// Eval outside of aspiration window, re-search at same depth with wider window.
-		if score <= alpha || score >= beta {
+		if score <= alpha {
 			alpha -= window * (1 << exp)
+			exp++
+			continue
+		} else if score >= beta {
 			beta += window * (1 << exp)
 			exp++
-			alpha, beta = -infinity, infinity
 			continue
 		}
 

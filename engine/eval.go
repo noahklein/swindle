@@ -112,12 +112,11 @@ func mateScore(score int16, ply int16) int16 {
 	return mate
 }
 
-// TODO: make branchless.
+// Branchless abs. Only works if MinInt16 <= a <= MaxInt16.
 func abs(n int16) int16 {
-	if n < 0 {
-		return -n
-	}
-	return n
+	sgn := n >> 15
+	n ^= sgn
+	return n - sgn
 }
 
 // Branchless max. Only works if MinInt16 <= a - b <= MaxInt16.
