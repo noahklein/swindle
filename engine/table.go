@@ -1,16 +1,25 @@
 package engine
 
 import (
+	"fmt"
 	"sync"
+	"unsafe"
 
 	"github.com/noahklein/dragon"
 )
 
-// const MB = 1 << 20
-// const size = unsafe.Sizeof(Entry{})
+func init() {
+	fmt.Println("Hash size:", tableSize/MB, "mb")
+}
 
-// const tableSize uint64 = uint64(100 * MB / size)
-const tableSize uint64 = 0xFFFFF
+const (
+	megabytes = 2 * 1024
+	MB        = 1024 * 1024
+	size      = uint64(unsafe.Sizeof(Entry{}))
+)
+
+// const tableSize uint64 = 0xFFFFF
+var tableSize uint64 = roundPow2(megabytes * MB / size)
 
 type NodeType uint8
 
@@ -29,45 +38,53 @@ type Entry struct {
 	best  dragon.Move
 }
 
-// Transpositions is a transposition table (TT); used to memoize searched positions. TTs add
-// search-instability.
+// Transpositions is a transposition table (TT); used to memoize searched positions.
+// TTs add search-instability.
 type Transpositions struct {
 	sync.Mutex // TODO: this can be done locklessly.
-	table      [tableSize]Entry
-	size       uint64
+	table      []Entry
+	full       uint64
+	hits       int
 }
 
-func NewTable() *Transpositions {
+func NewTranspositionTable() *Transpositions {
 	return &Transpositions{
-		table: [tableSize]Entry{},
+		table: make([]Entry, tableSize),
 	}
 }
 
 func key(hash uint64) uint64 { return hash % tableSize }
 
-func (t *Transpositions) Add(ply int16, e Entry) {
-	e.value = min(max(mateVal, e.value), -mateVal)
+// Always replaces previous entries.
+func (tt *Transpositions) Add(ply int16, e Entry) {
+	// TODO: Adjust mate scores for depth. TT can return misleading results.
 
-	t.Lock()
-	defer t.Unlock()
+	tt.Lock()
+	defer tt.Unlock()
 
-	t.size++
-	t.table[key(e.key)] = e
+	k := key(e.key)
+	if tt.table[k].flag != NodeUnknown {
+		tt.full++
+	}
+	tt.table[k] = e
 }
 
-func (t *Transpositions) Get(hash uint64) (Entry, bool) {
-	t.Lock()
-	defer t.Unlock()
+func (tt *Transpositions) Get(hash uint64) (Entry, bool) {
+	tt.Lock()
+	defer tt.Unlock()
 
-	e := t.table[key(hash)]
-	return e, e.key == hash
+	e := tt.table[key(hash)]
+	ok := e.key == hash
+
+	if ok {
+		tt.hits++
+	}
+
+	return e, ok
 }
 
-func (t *Transpositions) GetEval(hash uint64, depth int, alpha, beta int16) (int16, NodeType) {
-	// TODO: Need to detect repetitions before enabling tt.
-	// return 0, NodeUnknown
-
-	e, ok := t.Get(hash)
+func (tt *Transpositions) GetEval(hash uint64, depth int, alpha, beta int16) (int16, NodeType) {
+	e, ok := tt.Get(hash)
 	if !ok || e.depth < depth {
 		return 0, NodeUnknown
 	}
@@ -84,8 +101,16 @@ func (t *Transpositions) GetEval(hash uint64, depth int, alpha, beta int16) (int
 	return 0, NodeUnknown
 }
 
-func (t *Transpositions) PermillFull() int {
-	return int(1000 * float64(t.size) / float64(tableSize))
+func (tt *Transpositions) PermillFull() int {
+	tt.Lock()
+	defer tt.Unlock()
+	return int(1000 * float64(tt.full) / float64(tableSize))
+}
+
+func (tt *Transpositions) Hits() int {
+	tt.Lock()
+	defer tt.Unlock()
+	return tt.hits
 }
 
 // History is a list of board hashes seen at each ply.
@@ -97,7 +122,7 @@ type History struct {
 // reset whenever an irreversible move is made, i.e. pawn moves, captures, castling, and
 // moves that lose castling rights.
 func (hst *History) Draw(hash uint64, ply int16, halfMoveClock uint8) bool {
-	if halfMoveClock >= 50 {
+	if halfMoveClock >= 100 {
 		return true
 	}
 	if halfMoveClock < 8 {
@@ -133,4 +158,13 @@ func (hst *History) Copy() *History {
 	var c History
 	c.positions = hst.positions
 	return &c
+}
+
+// Round to the nearest power-of-two.
+func roundPow2(n uint64) uint64 {
+	pow := uint64(1)
+	for pow < n {
+		pow *= 2
+	}
+	return pow
 }

@@ -1,6 +1,8 @@
+// Test the engine against the Lichess puzzle db.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"sort"
@@ -25,6 +27,7 @@ var (
 	length = flag.Int("length", 0, "puzzle length filter, must be even; 0 for all")
 
 	tsearch = flag.String("tsearch", "", "search for tags")
+	verbose = flag.Bool("v", false, "verbose logging")
 )
 
 func main() {
@@ -66,16 +69,19 @@ func main() {
 	for pNum, p := range puzzles {
 		e.NewGame()
 		e.Position(p.Fen, nil)
-		e.Debug(false)
+		e.Debug(*verbose)
 
 		var failed bool
 		var movesCompleted string
 		for i := 0; i < len(p.Moves); i += 2 {
 			e.Position(p.Fen, p.Moves[:i+1])
 			want := p.Moves[i+1]
-			result := e.Go(uci.SearchParams{
+
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			result := e.IterDeep(ctx, uci.SearchParams{
 				Depth: *depth,
 			})
+			cancel()
 
 			if result.Move != want {
 				failed = true
@@ -97,10 +103,10 @@ func main() {
 				correct--
 				movesCompleted += "x"
 				color.Red("%3d) Failed %s %s", pNum+1, p.ID, movesCompleted)
-				lichess := fmt.Sprintf("https://lichess.org/analysis/fromPosition/%v", p.Fen)
-				color.Red(strings.ReplaceAll(lichess, " ", "_"))
+				color.Red(lichessUrl(p.Fen))
 				color.Red("%v %v", p.Rating, strings.Join(p.Themes, ", "))
 				color.Red(`Wrong move: got %v, want %v, %v`, result.Move, want, p.Moves)
+				color.Red(result.Print(start))
 
 				failed = true
 				break
@@ -154,4 +160,10 @@ func contains(tags []string, t string) bool {
 	}
 
 	return false
+}
+
+const lichess = "https://lichess.org/analysis/fromPosition/"
+
+func lichessUrl(fen string) string {
+	return lichess + strings.ReplaceAll(fen, " ", "_")
 }

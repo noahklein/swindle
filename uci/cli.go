@@ -9,6 +9,8 @@ import (
 	"log"
 	"os"
 	"strings"
+
+	"github.com/fatih/color"
 )
 
 const startingFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
@@ -27,9 +29,13 @@ type Engine interface {
 	IsReady()
 	SetOption(option string, value string)
 	Debug(isOn bool)
+	ClearTT()
 }
 
 func Run(engine Engine) {
+	name, author, version := engine.About()
+	color.Green(`%s v%s by %s`, name, version, author)
+
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		input := scanner.Text()
@@ -94,7 +100,33 @@ func handle(engine Engine, input string) error {
 		handle(engine, "uci")
 		handle(engine, "ucinewgame")
 		handle(engine, "position startpos moves e2e4")
+	case "cleartt":
+		engine.ClearTT()
+	case "help":
+		printHelp(engine)
 	}
 
 	return nil
+}
+
+const helpString = `This is a UCI-compatible chess engine.
+For a full list of comamnds, read the UCI protocol:
+	http://wbec-ridderkerk.nl/html/UCIProtocol.html
+
+Set-up a position:
+	ucinewgame
+	position startpos moves e2e4 e7e5
+
+To search a position at depth 10:
+	go depth 10
+
+Infinite search:
+	go infinite
+	stop
+
+Search can be cancelled with the stop command.
+`
+
+func printHelp(e Engine) {
+	fmt.Print(helpString)
 }

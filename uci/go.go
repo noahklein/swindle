@@ -22,16 +22,17 @@ type SearchParams struct {
 
 type SearchResults struct {
 	Move     string
-	Score    float32
+	Score    int16
 	Mate     int16    // Moves till mate, negative if engine is losing.
 	PV       []string // Principal variation.
 	Hashfull int      // The hash is x permill full.
 	Nodes    int
 
 	Depth, SelectiveDepth int
+	TableHits             int
 }
 
-func (sr SearchResults) Print(duration time.Duration) string {
+func (sr SearchResults) Print(start time.Time) string {
 	var b strings.Builder
 	b.WriteString("info ")
 
@@ -41,14 +42,15 @@ func (sr SearchResults) Print(duration time.Duration) string {
 
 	add("depth %d", sr.Depth)
 	add("seldepth %d", sr.SelectiveDepth)
-	if sr.Mate != 0 {
+	if sr.Mate != 500 {
 		add("score mate %v", sr.Mate)
 	} else {
 		add("score cp %v", sr.Score)
 	}
 	add("hashfull %d", sr.Hashfull)
-	add("time %d", duration/time.Millisecond)
+	add("time %d", time.Since(start)/time.Millisecond)
 	add("nodes %d", sr.Nodes)
+	add("tbhits %d", sr.TableHits)
 
 	if len(sr.PV) > 0 {
 		add("pv %v", strings.Join(sr.PV, " "))
@@ -62,9 +64,8 @@ func search(engine Engine, args []string) {
 	go func() {
 		start := time.Now()
 		result := engine.Go(params)
-		duration := time.Since(start)
 
-		fmt.Println(result.Print(duration))
+		fmt.Println(result.Print(start))
 		fmt.Printf("bestmove %v\n", result.Move)
 	}()
 }

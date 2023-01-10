@@ -17,7 +17,6 @@ func TestMate(t *testing.T) {
 		want     string
 		wantMate int16
 	}{
-		// Mate in 2
 		{
 			name:  "mate in 2, w",
 			fen:   "r2qkb1r/pp2nppp/3p4/2pNN1B1/2BnP3/3P4/PPP2PPP/R2bK2R w KQkq - 1 0",
@@ -30,12 +29,17 @@ func TestMate(t *testing.T) {
 			depth: 2,
 			want:  "g2g1", wantMate: 1,
 		},
-		// Mate in 3
 		{
 			name:  "mate in 3, b",
 			fen:   "r1b1kb1r/pppp1ppp/5q2/4n3/3KP3/2N3PN/PPP4P/R1BQ1B1R b kq - 0 1",
 			depth: 5,
 			want:  "f8c5", wantMate: 2,
+		},
+		{
+			name:  "K+R vs K, mate in 11, w",
+			fen:   "8/8/8/8/4K1k1/4R3/8/8 w - - 0 1",
+			depth: 16,
+			want:  "e4e5", wantMate: 8,
 		},
 	}
 
@@ -44,9 +48,9 @@ func TestMate(t *testing.T) {
 			var e Engine
 			e.NewGame()
 			e.Position(tt.fen, nil)
-			e.Debug(false)
+			e.Debug(true)
 
-			results := e.Search(context.Background(), uci.SearchParams{
+			results := e.IterDeep(context.Background(), uci.SearchParams{
 				Depth: tt.depth,
 			})
 
@@ -81,7 +85,7 @@ func TestForcedDraw(t *testing.T) {
 			e.Position(tt.fen, nil)
 			e.Debug(false)
 
-			results := e.Search(context.Background(), uci.SearchParams{
+			results := e.IterDeep(context.Background(), uci.SearchParams{
 				Depth: tt.depth,
 			})
 
@@ -205,7 +209,7 @@ func benchmarkSearch(depth int, b *testing.B) {
 	ctx := context.Background()
 
 	for n := 0; n < b.N; n++ {
-		e.Search(ctx, uci.SearchParams{
+		e.IterDeep(ctx, uci.SearchParams{
 			Depth: depth,
 		})
 

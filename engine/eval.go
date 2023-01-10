@@ -54,13 +54,10 @@ func Eval(board *dragon.Board) int16 {
 	egWeight := 24 - mgWeight
 
 	material := pieceEval(&board.White) - pieceEval(&board.Black)
-	material = materialWeight(material)
 
 	phaseScore := (mg*mgWeight + eg*egWeight) / 24
 	return whiteToMove(board) * (material + phaseScore)
 }
-
-func materialWeight(n int16) int16 { return n / 2 }
 
 // Number from 0 to 24 indicating how much material is on the board.
 func materialCount(b *dragon.Board) int16 {
@@ -95,11 +92,14 @@ func badCapture(attacker, victim int) bool {
 	return vicVal < attVal-pawnVal/2
 }
 
-const maxMate = 400
+const (
+	maxMate = 400
+	NotMate = 500
+)
 
-// Converts an eval score into ply till mate. Returns 0 if not mating.
+// Converts an eval score into ply till mate. Returns NotMate if not mating.
 func mateScore(score int16, ply int16) int16 {
-	var mate int16
+	var mate int16 = NotMate
 	plyTillMate := -mateVal - abs(score) - ply
 	if plyTillMate < maxMate {
 		mate = plyTillMate / 2

@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"log"
+	"time"
 
 	"github.com/noahklein/chess/uci"
 	"github.com/noahklein/dragon"
@@ -13,7 +14,8 @@ const (
 	author  = "Noah Klein"
 	version = "1.0"
 
-	depth = 6
+	depth     = 12
+	thinkTime = 2 * time.Second
 )
 
 // The chess engine. Must call NewGame() to initialize, followed by Position().
@@ -38,7 +40,7 @@ func (e *Engine) NewGame() {
 	board := dragon.ParseFen(dragon.Startpos)
 	e.killer = NewKiller()
 	e.board = &board
-	e.transpositions = NewTable()
+	e.transpositions = NewTranspositionTable()
 	e.nodeCount = NodeCount{}
 	e.history = &History{}
 	e.ply = 1
@@ -66,6 +68,7 @@ func (e *Engine) Position(fen string, moves []string) {
 	e.board = &board
 	e.ply = int16(e.board.Fullmoveno * 2)
 	e.history.Push(board.Hash())
+	e.transpositions.hits = 0
 	for _, move := range moves {
 		m, err := dragon.ParseMove(move)
 		if err != nil {
@@ -73,24 +76,34 @@ func (e *Engine) Position(fen string, moves []string) {
 		}
 		e.Move(m)
 	}
-
-	e.Warn("Position set")
 }
 
 // Go is the search entry-point, called by the UCI go command.
-func (e *Engine) Go(info uci.SearchParams) uci.SearchResults {
-	ctx, cancel := context.WithCancel(context.Background())
+func (e *Engine) Go(params uci.SearchParams) uci.SearchResults {
+	// TODO: Smarter time management; look at remaining clock.
+	thinkTime := thinkTime
+	if params.Infinite {
+		thinkTime = 1 * time.Hour
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), thinkTime)
 	defer cancel()
 	e.cancel = cancel
 
-	if info.Depth == 0 {
-		info.Depth = depth
+	if params.Depth == 0 {
+		params.Depth = depth
 	}
-	if info.Infinite {
-		info.Depth = 100
+	if params.Infinite {
+		params.Depth = 100
+	}
+	e.nodeCount.Reset()
+
+	moves, _ := e.GenMoves()
+	if len(moves) == 0 {
+		e.Error("Search() called on game that has already ended.")
+		return uci.SearchResults{}
 	}
 
-	return e.Search(ctx, info)
+	return e.IterDeep(ctx, params)
 }
 
 // Make a move on the board. Returns an unmove callback.
@@ -118,3 +131,5 @@ func (e *Engine) Stop() {
 
 // IsReady should block until the engine is ready to search.
 func (e *Engine) IsReady() {}
+
+func (e *Engine) ClearTT() { e.transpositions = NewTranspositionTable() }

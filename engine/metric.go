@@ -2,8 +2,10 @@ package engine
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/fatih/color"
+	"github.com/noahklein/dragon"
 )
 
 // NodeCount tracks useful stats for reporting. Not thread-safe.
@@ -15,7 +17,12 @@ type NodeCount struct {
 func (nc *NodeCount) Inc()          { nc.nodes++ }
 func (nc *NodeCount) Qinc()         { nc.qNodes++; nc.nodes++ }
 func (nc *NodeCount) Ply(ply int16) { nc.maxPly = max(ply, nc.maxPly) }
-func (nc *NodeCount) Reset()        { nc.nodes = 0; nc.qNodes = 0; nc.maxPly = 0 }
+
+func (nc *NodeCount) Reset() {
+	nc.nodes = 0
+	nc.qNodes = 0
+	nc.maxPly = 0
+}
 
 // TODO: Implement.
 func (e *Engine) SetOption(option string, value string) {}
@@ -27,7 +34,7 @@ func (e *Engine) Debug(isOn bool) {
 
 func (e *Engine) Logf(s string, a ...any) {
 	if e.debug {
-		fmt.Printf("info "+s+"\n", a...)
+		fmt.Printf(s+"\n", a...)
 	}
 }
 
@@ -40,4 +47,12 @@ func (e *Engine) Warn(s string, a ...any) {
 
 func (e *Engine) Error(s string, a ...any) {
 	color.Red(s, a...)
+}
+
+func stringMoves(ms []dragon.Move) string {
+	var b strings.Builder
+	for _, m := range ms {
+		b.WriteString(m.String() + " ")
+	}
+	return b.String()
 }

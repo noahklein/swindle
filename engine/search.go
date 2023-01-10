@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"sort"
 	"sync"
 	"time"
 
@@ -16,28 +15,61 @@ const (
 	drawVal  int16 = 0
 )
 
-// Root search.
-func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.SearchResults {
-	e.nodeCount.Reset()
+// Iterative deepening with aspiration window. After each iteration we use the eval
+// as the center of the alpha-beta window, and search again one ply deeper. If the eval
+// falls outside of the window, we re-search on the same depth with a wider window.
+func (e *Engine) IterDeep(ctx context.Context, params uci.SearchParams) uci.SearchResults {
+	// Increase depth with less material. Up to depth + 12 in king and pawn endgames.
+	// params.Depth += int(24-materialCount(e.board)) / 2
 
-	// TODO: Smarter time management; look at remaining clock.
-	thinkTime := 30 * time.Second
-	if params.Infinite {
-		thinkTime = 1 * time.Hour
+	const window = pawnVal / 4
+	alpha, beta := -infinity, infinity
+	exp := 1 // Exponentially increase window on window misses.
+
+	if entry, ok := e.transpositions.Get(e.board.Hash()); ok {
+		alpha, beta = entry.value-window, entry.value+window
 	}
-	ctx, cancel := context.WithTimeout(ctx, thinkTime)
-	defer cancel()
 
+	var result uci.SearchResults
+	for depth := int16(0); ctx.Err() == nil && depth <= int16(params.Depth); {
+		start := time.Now()
+		result = e.Search(ctx, depth, alpha, beta)
+		score := result.Score
+
+		// Eval outside of aspiration window, re-search at same depth with wider window.
+		if score <= alpha {
+			alpha -= window * (1 << exp)
+			exp++
+			continue
+		} else if score >= beta {
+			beta += window * (1 << exp)
+			exp++
+			continue
+		}
+
+		if result.Mate != NotMate {
+			e.Logf(result.Print(start))
+			e.Warn("Mate found, early return")
+			return result
+		}
+
+		// Eval inside of window.
+		alpha, beta = score-window, score+window
+		exp = 1
+		depth++
+
+		e.Logf(result.Print(start))
+	}
+
+	if ctx.Err() != nil {
+		e.Warn("timeout")
+	}
+	return result
+}
+
+// Root search. Runs AlphaBeta search concurrently for each move and collects the results.
+func (e *Engine) Search(ctx context.Context, depth, alpha, beta int16) uci.SearchResults {
 	moves, _ := e.GenMoves()
-	if len(moves) == 0 {
-		e.Error("Search() called on game that has already ended.")
-		return uci.SearchResults{}
-	}
-
-	// Increase depth in endgames.
-	if materialCount(e.board) < 12 {
-		params.Depth += 2
-	}
 
 	var (
 		bestMu    sync.Mutex
@@ -60,10 +92,8 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 			defer wg.Done()
 			e.nodeCount.Inc()
 
-			start := time.Now()
-
 			unmove := e.Move(move)
-			score := e.IterDeep(ctx, params.Depth)
+			score := -e.AlphaBeta(-beta, -alpha, int(depth))
 			unmove()
 
 			bestMu.Lock()
@@ -83,64 +113,21 @@ func (e *Engine) Search(ctx context.Context, params uci.SearchParams) uci.Search
 
 				results = uci.SearchResults{
 					Move:           bestMove.String(),
-					Score:          float32(bestScore),
+					Score:          bestScore,
 					Mate:           mateScore(bestScore, e.ply),
 					Nodes:          int(nodes),
 					Hashfull:       e.transpositions.PermillFull(),
 					PV:             pv,
-					Depth:          int(maxDepth),
-					SelectiveDepth: params.Depth,
+					Depth:          int(depth),
+					SelectiveDepth: int(maxDepth),
+					TableHits:      e.transpositions.hits,
 				}
-				e.Logf(results.Print(time.Since(start)))
 			}
 		}()
 	}
 	wg.Wait()
 
-	pctQuiescent := 100 * float32(qNodes) / float32(nodes)
-	e.Warn("%v / %v = %v%% Quiescenct nodes\n", qNodes, nodes, pctQuiescent)
-
 	return results
-}
-
-// Iterative deepening with aspiration window. After each iteration we use the eval
-// as the center of the alpha-beta window, and search again one ply deeper. If the eval
-// falls outside of the window, we re-search on the same depth with a wider window.
-func (e *Engine) IterDeep(ctx context.Context, maxDepth int) int16 {
-	var score int16
-	alpha, beta := -infinity, infinity
-	const window = pawnVal / 2
-	// Exponentially expand window, on window misses.
-	var exp = 1
-
-	for depth := 0; depth <= maxDepth; {
-		if ctx.Err() != nil {
-			return score
-		}
-
-		score = -e.AlphaBeta(-beta, -alpha, depth)
-		// Eval outside of aspiration window, re-search at same depth with wider window.
-		if score <= alpha {
-			alpha -= window * (1 << exp)
-			exp++
-			continue
-		} else if score >= beta {
-			beta += window * (1 << exp)
-			exp++
-			continue
-		}
-
-		if mateScore(score, e.ply) > 0 {
-			return score
-		}
-
-		// Eval inside of window.
-		alpha, beta = score-window, score+window
-		exp = 1
-		depth++
-	}
-
-	return score
 }
 
 // AlphaBeta improves upon the minimax algorithm.
@@ -156,12 +143,29 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 		return drawVal
 	}
 
-	moves, inCheck := e.GenMoves()
-	if inCheck && len(moves) == 0 {
-		return mateVal + e.ply
+	// Mate distance pruning: if we've already found a forced mate on another branch at
+	// this ply, then prune this branch.
+	//
+	// Upper bound, we're mating.
+	matingValue := -mateVal - e.ply
+	if matingValue < beta {
+		beta = matingValue
+		if alpha >= matingValue {
+			return matingValue
+		}
 	}
-	if len(moves) == 0 {
-		return drawVal
+	// Lower bound, we're getting mated.
+	matingValue = mateVal + e.ply
+	if matingValue > alpha {
+		alpha = matingValue
+		if beta <= matingValue {
+			return matingValue
+		}
+	}
+
+	moves, inCheck := e.GenMoves()
+	if terminalScore, ok := e.terminal(len(moves), inCheck); ok {
+		return terminalScore
 	}
 
 	// Check transposition table.
@@ -173,11 +177,11 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 		return e.Quiesce(alpha, beta)
 	}
 
-	// if len(moves) == 1 {
-	// 	// TODO: constrain this.
-	// 	// Only one reply, this ply is free. Extend search.
-	// 	depth++
-	// }
+	if len(moves) == 1 {
+		// Only one reply, this ply is free. Extend search.
+		// TODO: constrain this.
+		depth++
+	}
 
 	// Assume this is an alpha node.
 	nodeType := NodeAlpha
@@ -187,21 +191,26 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 	for mNum, move := range e.sortMoves(moves) {
 		unmove := e.Move(move)
 
-		reduction := 1
-		if mNum > 10 {
-			reduction = 2
+		// Only search the first sorted moves to full depth.
+		lateMoveReduction := 1
+		if mNum > 6 {
+			lateMoveReduction = 3
 		}
+		// Extend or reduce search depth for this move.
+		moveDepth := depth +
+			e.extensions(move, depth) - e.reductions(move, depth) -
+			lateMoveReduction
 
 		var score int16
 		if foundPV {
 			// Search tiny window.
-			score = -e.AlphaBeta(-alpha-1, -alpha, depth-reduction)
+			score = -e.AlphaBeta(-alpha-1, -alpha, moveDepth)
 			// If we failed, search again with normal window.
 			if score > alpha && score < beta {
-				score = -e.AlphaBeta(-beta, -alpha, depth-reduction)
+				score = -e.AlphaBeta(-beta, -alpha, moveDepth)
 			}
 		} else {
-			score = -e.AlphaBeta(-beta, -alpha, depth-reduction)
+			score = -e.AlphaBeta(-beta, -alpha, moveDepth)
 		}
 		unmove()
 
@@ -258,12 +267,15 @@ func (e *Engine) Quiesce(alpha, beta int16) int16 {
 	alpha = max(alpha, score)
 
 	// TODO: handle checks specially.
-	moves, _ := e.GenMoves()
+	moves, inCheck := e.GenMoves()
+	if terminalScore, ok := e.terminal(len(moves), inCheck); ok {
+		return terminalScore
+	}
 
 	var loudMoves []dragon.Move
 	for _, move := range moves {
-		if score, ok := e.Terminal(move); ok {
-			return -score
+		if score, ok := e.terminalMove(move); ok {
+			return score
 		}
 
 		// Skip non-captures.
@@ -343,71 +355,26 @@ func (e *Engine) legal(move dragon.Move) bool {
 	return false
 }
 
-// Terminal gets the score at terminal nodes.
-func (e *Engine) Terminal(move dragon.Move) (int16, bool) {
+// terminalMove checks if a move is terminal and gets the score at terminal nodes.
+func (e *Engine) terminalMove(move dragon.Move) (int16, bool) {
 	unmove := e.Move(move)
 	defer unmove()
 
 	moves, inCheck := e.GenMoves()
-	if len(moves) > 0 {
+
+	terminalScore, ok := e.terminal(len(moves), inCheck)
+	return -terminalScore, ok
+}
+
+func (e *Engine) terminal(numMoves int, inCheck bool) (int16, bool) {
+	if numMoves > 0 {
 		return 0, false
 	}
 
 	if inCheck {
-		return -mateVal - e.ply, true
+		return mateVal + e.ply, true
 	}
 	return drawVal, true
-}
-
-// Sort moves using cheap heuristics, e.g. search captures and promotions before other moves.
-// Searching better moves first helps us prune nodes with beta cutoffs.
-func (e *Engine) sortMoves(moves []dragon.Move) []dragon.Move {
-	var (
-		out, killers, checks, captures, others []dragon.Move
-	)
-
-	pv, pvOk := e.PVMove()
-
-	kms := e.killer.Get(e.ply)
-
-	for _, move := range moves {
-		if pvOk && move == pv {
-			out = append(out, move)
-		} else if move == kms[0] || move == kms[1] { // Zero-value is a1a1, an impossible move.
-			killers = append(killers, move)
-		} else if IsCheck(e.board, move) {
-			checks = append(checks, move)
-		} else if Occupied(e.board, move.To()) {
-			captures = append(captures, move)
-		} else {
-			others = append(others, move)
-		}
-	}
-
-	// Most-Valuable Victim/Least-Valuable attacker. Search PxQ, before QxP.
-	sort.Slice(captures, func(i, j int) bool {
-		f1, _ := dragon.GetPieceType(captures[i].From(), e.board)
-		f2, _ := dragon.GetPieceType(captures[j].From(), e.board)
-		t1, _ := dragon.GetPieceType(captures[i].To(), e.board)
-		t2, _ := dragon.GetPieceType(captures[j].To(), e.board)
-		return t1-f1 > t2-f2
-	})
-
-	out = append(out, killers...)
-	out = append(out, checks...)
-	out = append(out, captures...)
-	return append(out, others...)
-}
-
-// Occupied checks if a square is occupied.
-func Occupied(board *dragon.Board, square uint8) bool {
-	return (board.Black.All|board.White.All)&uint64(1<<square) >= 1
-}
-
-func IsCheck(board *dragon.Board, move dragon.Move) bool {
-	unapply := board.Apply(move)
-	defer unapply()
-	return board.OurKingInCheck()
 }
 
 func whiteToMove(board *dragon.Board) int16 {
