@@ -2,9 +2,9 @@ package engine
 
 import (
 	"context"
-	"log"
 	"time"
 
+	"github.com/noahklein/chess/log"
 	"github.com/noahklein/chess/uci"
 	"github.com/noahklein/dragon"
 )
@@ -14,12 +14,13 @@ const (
 	author  = "Noah Klein"
 	version = "1.0"
 
-	depth     = 12
-	thinkTime = 2 * time.Second
+	depth     = 10
+	thinkTime = 5 * time.Second
 )
 
 // The chess engine. Must call NewGame() to initialize, followed by Position().
 type Engine struct {
+	log.Logger
 	board *dragon.Board
 
 	ply            int16
@@ -72,7 +73,7 @@ func (e *Engine) Position(fen string, moves []string) {
 	for _, move := range moves {
 		m, err := dragon.ParseMove(move)
 		if err != nil {
-			log.Fatalf("Could not parse move %v: %v", move, err)
+			e.Fatal("Could not parse move %v: %v", move, err)
 		}
 		e.Move(m)
 	}

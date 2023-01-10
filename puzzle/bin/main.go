@@ -66,6 +66,7 @@ func main() {
 	rating := elo.Default
 
 	var e engine.Engine
+
 	for pNum, p := range puzzles {
 		e.NewGame()
 		e.Position(p.Fen, nil)

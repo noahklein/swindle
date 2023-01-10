@@ -47,8 +47,8 @@ func (e *Engine) IterDeep(ctx context.Context, params uci.SearchParams) uci.Sear
 			continue
 		}
 
+		e.UCI(result.Print(start))
 		if result.Mate != NotMate {
-			e.Logf(result.Print(start))
 			e.Warn("Mate found, early return")
 			return result
 		}
@@ -57,8 +57,6 @@ func (e *Engine) IterDeep(ctx context.Context, params uci.SearchParams) uci.Sear
 		alpha, beta = score-window, score+window
 		exp = 1
 		depth++
-
-		e.Logf(result.Print(start))
 	}
 
 	if ctx.Err() != nil {
@@ -191,10 +189,10 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 	for mNum, move := range e.sortMoves(moves) {
 		unmove := e.Move(move)
 
-		// Only search the first sorted moves to full depth.
+		// Only search the first 6 sorted moves to full depth.
 		lateMoveReduction := 1
-		if mNum > 6 {
-			lateMoveReduction = 3
+		if mNum > 6 && depth >= 3 {
+			lateMoveReduction = depth / 3
 		}
 		// Extend or reduce search depth for this move.
 		moveDepth := depth +

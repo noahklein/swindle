@@ -1,10 +1,9 @@
 package engine
 
 import (
-	"fmt"
 	"strings"
 
-	"github.com/fatih/color"
+	"github.com/noahklein/chess/log"
 	"github.com/noahklein/dragon"
 )
 
@@ -12,6 +11,8 @@ import (
 type NodeCount struct {
 	nodes, qNodes int
 	maxPly        int16 // For reporting max depth.
+
+	legalKiller int
 }
 
 func (nc *NodeCount) Inc()          { nc.nodes++ }
@@ -30,23 +31,10 @@ func (e *Engine) SetOption(option string, value string) {}
 // Debug enables logging and metric reporting.
 func (e *Engine) Debug(isOn bool) {
 	e.debug = isOn
-}
 
-func (e *Engine) Logf(s string, a ...any) {
-	if e.debug {
-		fmt.Printf(s+"\n", a...)
+	if isOn {
+		e.Logger.Level = log.WARN
 	}
-}
-
-func (e *Engine) Warn(s string, a ...any) {
-	if e.debug {
-		color.Yellow(s, a...)
-
-	}
-}
-
-func (e *Engine) Error(s string, a ...any) {
-	color.Red(s, a...)
 }
 
 func stringMoves(ms []dragon.Move) string {

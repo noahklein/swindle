@@ -21,6 +21,7 @@ func (e *Engine) sortMoves(moves []dragon.Move) []dragon.Move {
 		if pvOk && move == pv {
 			out = append(out, move)
 		} else if move == kms[0] || move == kms[1] { // Zero-value is a1a1, an impossible move.
+			e.nodeCount.legalKiller++
 			killers = append(killers, move)
 		} else if move.Promote() == dragon.Queen || IsCheck(e.board, move) {
 			checks = append(checks, move)
@@ -33,21 +34,13 @@ func (e *Engine) sortMoves(moves []dragon.Move) []dragon.Move {
 
 	e.mvvLva(captures)
 
-	// Most-Valuable Victim/Least-Valuable attacker. Search PxQ, before QxP.
-	// sort.Slice(captures, func(i, j int) bool {
-	// 	f1, _ := dragon.GetPieceType(captures[i].From(), e.board)
-	// 	f2, _ := dragon.GetPieceType(captures[j].From(), e.board)
-	// 	t1, _ := dragon.GetPieceType(captures[i].To(), e.board)
-	// 	t2, _ := dragon.GetPieceType(captures[j].To(), e.board)
-	// 	return t1-f1 > t2-f2
-	// })
-
 	out = append(out, killers...)
 	out = append(out, checks...)
 	out = append(out, captures...)
 	return append(out, others...)
 }
 
+// Most-Valuable Victim/Least-Valuable attacker. Search PxQ, before QxP.
 func (e *Engine) mvvLva(captures []dragon.Move) {
 	var from, to [64]int
 	// GetPieceType is expensive, cache the results.
