@@ -98,7 +98,7 @@ func playGame(fen string, depth int, thinkTime time.Duration) (uci.SearchResults
 		results.Nodes += finalResults.Nodes
 		finalResults = results
 
-		if moveCount > 100 {
+		if moveCount > 30 {
 			break
 		}
 	}

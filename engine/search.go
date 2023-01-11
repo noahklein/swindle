@@ -178,7 +178,7 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 	if len(moves) == 1 {
 		// Only one reply, this ply is free. Extend search.
 		// TODO: constrain this.
-		depth++
+		// depth++
 	}
 
 	// Assume this is an alpha node.
