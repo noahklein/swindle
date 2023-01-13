@@ -59,7 +59,14 @@ func key(hash uint64) uint64 { return hash % tableSize }
 
 // Always replaces previous entries.
 func (tt *Transpositions) Add(ply int16, e Entry) {
-	// TODO: Adjust mate scores for depth. TT can return misleading results.
+	// Adjust mate score.
+	if mateScore(e.value, ply) != NotMate {
+		if e.value < 0 {
+			e.value -= ply
+		} else {
+			e.value += ply
+		}
+	}
 
 	tt.Lock()
 	defer tt.Unlock()
@@ -81,22 +88,29 @@ func (tt *Transpositions) Add(ply int16, e Entry) {
 	tt.table[k] = e
 }
 
-func (tt *Transpositions) Get(hash uint64) (Entry, bool) {
+func (tt *Transpositions) Get(hash uint64, ply int16) (Entry, bool) {
 	tt.Lock()
-	defer tt.Unlock()
-
 	e := tt.table[key(hash)]
 	ok := e.key == hash
-
 	if ok {
 		tt.hits++
+	}
+	tt.Unlock()
+
+	// Adjust mate score.
+	if mateScore(e.value, ply) != NotMate {
+		if e.value < 0 {
+			e.value += ply
+		} else {
+			e.value -= ply
+		}
 	}
 
 	return e, ok
 }
 
-func (tt *Transpositions) GetEval(hash uint64, depth int, alpha, beta int16) (int16, NodeType) {
-	e, ok := tt.Get(hash)
+func (tt *Transpositions) GetEval(hash uint64, depth int, alpha, beta, ply int16) (int16, NodeType) {
+	e, ok := tt.Get(hash, ply)
 	if !ok || e.depth < depth {
 		return 0, NodeUnknown
 	}
@@ -181,7 +195,7 @@ func roundPow2(n uint64) uint64 {
 	return pow
 }
 
-// Squares is a square-centric representation of the board; useful for quick piece type
+// Squares is a square-centric representation of the board; useful for quick piece-type
 // lookups. It's incrementally updated on every move.
 type Squares struct {
 	squares [64]int16
@@ -200,6 +214,7 @@ func NewSquares(b *dragon.Board) *Squares {
 	return &Squares{squares}
 }
 
+// Move makes a move on the square-centric board and returns an unmove function.
 func (s *Squares) Move(m dragon.Move) func() {
 	captured := s.squares[m.To()]
 	s.squares[m.To()] = s.squares[m.From()]
@@ -211,6 +226,7 @@ func (s *Squares) Move(m dragon.Move) func() {
 	}
 }
 
+// PieceType gets the piece and color of a square.
 func (s *Squares) PieceType(sq uint8) (int16, bool) {
 	piece := s.squares[sq]
 	return abs(piece), piece > 0
