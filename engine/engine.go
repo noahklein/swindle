@@ -27,6 +27,7 @@ type Engine struct {
 	transpositions *Transpositions
 	killer         *Killer
 	history        *History
+	squares        *Squares
 
 	nodeCount NodeCount
 	debug     bool // Enables logs/metrics.
@@ -44,6 +45,7 @@ func (e *Engine) NewGame() {
 	e.transpositions = NewTranspositionTable()
 	e.nodeCount = NodeCount{}
 	e.history = &History{}
+	e.squares = NewSquares(&board)
 	e.ply = 1
 	e.cancel = func() {}
 	e.debug = true
@@ -58,6 +60,7 @@ func (e *Engine) Copy() *Engine {
 		transpositions: e.transpositions,
 		board:          &board,
 		history:        e.history.Copy(),
+		squares:        NewSquares(&board),
 		ply:            e.ply,
 		cancel:         e.cancel,
 		debug:          e.debug,
@@ -69,6 +72,7 @@ func (e *Engine) Position(fen string, moves []string) {
 	e.board = &board
 	e.ply = int16(e.board.Fullmoveno * 2)
 	e.history.Push(board.Hash())
+	e.squares = NewSquares(&board)
 
 	e.transpositions.hits = 0
 	e.transpositions.age++
@@ -116,12 +120,14 @@ func (e *Engine) Go(params uci.SearchParams) uci.SearchResults {
 // Make a move on the board. Returns an unmove callback.
 func (e *Engine) Move(m dragon.Move) func() {
 	unapply := e.board.Apply(m)
+	unmoveSquares := e.squares.Move(m)
 	e.history.Push(e.board.Hash())
 	e.ply++
 	e.nodeCount.Ply(e.ply)
 
 	return func() {
 		unapply()
+		unmoveSquares()
 		e.ply--
 		e.history.Pop()
 	}

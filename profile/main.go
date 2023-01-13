@@ -6,11 +6,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
 	"github.com/noahklein/chess/engine"
+	"github.com/noahklein/chess/log"
 	"github.com/noahklein/chess/uci"
 	"github.com/noahklein/dragon"
 
@@ -36,7 +36,7 @@ func main() {
     go tool pprof -top http://localhost:6060/debug/pprof/profile
 	`)
 		go func() {
-			log.Println(http.ListenAndServe("localhost:6060", nil))
+			fmt.Println(http.ListenAndServe("localhost:6060", nil))
 		}()
 	}
 
@@ -77,6 +77,7 @@ func playGame(fen string, depth int, thinkTime time.Duration) (uci.SearchResults
 	e.NewGame()
 	e.Position(fen, nil)
 	e.Debug(false)
+	e.Level = log.NONE
 
 	var moveCount int
 	var finalResults uci.SearchResults

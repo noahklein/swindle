@@ -180,3 +180,38 @@ func roundPow2(n uint64) uint64 {
 	}
 	return pow
 }
+
+// Squares is a square-centric representation of the board; useful for quick piece type
+// lookups. It's incrementally updated on every move.
+type Squares struct {
+	squares [64]int16
+}
+
+func NewSquares(b *dragon.Board) *Squares {
+	var squares [64]int16
+	for sq := uint8(0); sq < 64; sq++ {
+		piece, isWhite := dragon.GetPieceType(sq, b)
+		squares[sq] = int16(piece)
+		if !isWhite {
+			squares[sq] = -int16(piece)
+		}
+	}
+
+	return &Squares{squares}
+}
+
+func (s *Squares) Move(m dragon.Move) func() {
+	captured := s.squares[m.To()]
+	s.squares[m.To()] = s.squares[m.From()]
+	s.squares[m.From()] = dragon.Nothing
+
+	return func() {
+		s.squares[m.From()] = s.squares[m.To()]
+		s.squares[m.To()] = captured
+	}
+}
+
+func (s *Squares) PieceType(sq uint8) (int16, bool) {
+	piece := s.squares[sq]
+	return abs(piece), piece > 0
+}

@@ -19,9 +19,6 @@ const (
 // as the center of the alpha-beta window, and search again one ply deeper. If the eval
 // falls outside of the window, we re-search on the same depth with a wider window.
 func (e *Engine) IterDeep(ctx context.Context, params uci.SearchParams) uci.SearchResults {
-	// Increase depth with less material. Up to depth + 12 in king and pawn endgames.
-	// params.Depth += int(24-materialCount(e.board)) / 2
-
 	const window = pawnVal / 4
 	alpha, beta := -infinity, infinity
 	exp := 1 // Exponentially increase window on window misses.
@@ -30,10 +27,16 @@ func (e *Engine) IterDeep(ctx context.Context, params uci.SearchParams) uci.Sear
 		alpha, beta = entry.value-window, entry.value+window
 	}
 
+	moves, _ := e.GenMoves()
+	if len(moves) == 0 {
+		panic("IterDeep called with no moves")
+	}
+
 	start := time.Now()
-	var result uci.SearchResults
-	for depth := int16(0); ctx.Err() == nil && depth <= int16(params.Depth); {
-		result = e.Search(ctx, depth, alpha, beta)
+	// Default best move is first move in case of timeout before first iteration.
+	bestResult := uci.SearchResults{Move: moves[0].String()}
+	for depth := int16(1); ctx.Err() == nil && depth <= int16(params.Depth); {
+		result := e.Search(ctx, depth, alpha, beta)
 		score := result.Score
 
 		// Eval outside of aspiration window, re-search at same depth with wider window.
@@ -57,12 +60,13 @@ func (e *Engine) IterDeep(ctx context.Context, params uci.SearchParams) uci.Sear
 		alpha, beta = score-window, score+window
 		exp = 1
 		depth++
+		bestResult = result
 	}
 
 	if ctx.Err() != nil {
 		e.Warn("timeout")
 	}
-	return result
+	return bestResult
 }
 
 // Root search. Runs AlphaBeta search concurrently for each move and collects the results.

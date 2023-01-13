@@ -2,8 +2,10 @@ package engine
 
 import (
 	"context"
+	"math/rand"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/noahklein/chess/uci"
 	"github.com/noahklein/dragon"
@@ -142,6 +144,11 @@ func TestMvvLva(t *testing.T) {
 	}
 
 	moves, _ := e.board.GenerateLegalMoves()
+
+	rand.Seed(time.Now().Unix())
+	rand.Shuffle(len(moves), func(i, j int) {
+		moves[i], moves[j] = moves[j], moves[i]
+	})
 	moves = e.sortMoves(moves)[:len(want)]
 
 	var got []string

@@ -42,22 +42,12 @@ func (e *Engine) sortMoves(moves []dragon.Move) []dragon.Move {
 
 // Most-Valuable Victim/Least-Valuable attacker. Search PxQ, before QxP.
 func (e *Engine) mvvLva(captures []dragon.Move) {
-	var from, to [64]int
-	// GetPieceType is expensive, cache the results.
-	for _, move := range captures {
-		f, _ := dragon.GetPieceType(move.From(), e.board)
-		t, _ := dragon.GetPieceType(move.To(), e.board)
-
-		from[move.From()] = f
-		to[move.To()] = t
-	}
-
 	sort.Slice(captures, func(i, j int) bool {
-		fa := from[captures[i].From()]
-		ta := to[captures[i].To()]
+		fa, _ := e.squares.PieceType(captures[i].From())
+		ta, _ := e.squares.PieceType(captures[i].To())
 
-		fb := from[captures[j].From()]
-		tb := to[captures[j].To()]
+		fb, _ := e.squares.PieceType(captures[j].From())
+		tb, _ := e.squares.PieceType(captures[j].To())
 
 		return ta-fa > tb-fb
 	})
