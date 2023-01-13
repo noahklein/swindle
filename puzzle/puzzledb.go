@@ -1,4 +1,4 @@
-package puzzle
+package puzzledb
 
 import (
 	"encoding/csv"
@@ -17,7 +17,8 @@ type Puzzle struct {
 	Themes []string
 }
 
-func PuzzleDB(howMany int, predicate func(Puzzle) bool) []Puzzle {
+// Query gets a list of puzzles from the puzzle csv file. Run download.sh before using.
+func Query(limit int, predicate func(Puzzle) bool) []Puzzle {
 	// PuzzleId,FEN,Moves,Rating,RatingDeviation,Popularity,NbPlays,Themes,GameUrl,OpeningFamily,OpeningVariation
 	f, err := os.Open("./lichess_db_puzzle.csv")
 	if err != nil {
@@ -27,15 +28,15 @@ func PuzzleDB(howMany int, predicate func(Puzzle) bool) []Puzzle {
 
 	csvReader := csv.NewReader(f)
 
-	if howMany == 0 {
-		howMany = math.MaxInt
+	if limit == 0 {
+		limit = math.MaxInt
 	}
 
 	var puzzles []Puzzle
-	for len(puzzles) < howMany {
+	for len(puzzles) < limit {
 		r, err := csvReader.Read()
 		if err == io.EOF {
-			break
+			return puzzles
 		}
 
 		rating, err := strconv.Atoi(r[3])

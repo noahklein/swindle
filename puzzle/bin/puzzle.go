@@ -12,7 +12,7 @@ import (
 	"github.com/noahklein/chess/elo"
 	"github.com/noahklein/chess/engine"
 	"github.com/noahklein/chess/log"
-	"github.com/noahklein/chess/puzzle"
+	puzzledb "github.com/noahklein/chess/puzzle"
 	"github.com/noahklein/chess/uci"
 	"github.com/noahklein/dragon"
 
@@ -29,7 +29,7 @@ var (
 	length = flag.Int("length", 0, "puzzle length filter, must be even; 0 for all")
 
 	tsearch = flag.String("tsearch", "", "search for tags")
-	verbose = flag.Bool("v", false, "verbose logging")
+	verbose = flag.Int("v", 0, "log level, -1 to disable logging")
 )
 
 func main() {
@@ -44,7 +44,7 @@ func main() {
 	if len(*id) > 0 {
 		ids = strings.Split(*id, ",")
 	}
-	var puzzles = puzzle.PuzzleDB(*limit, func(p puzzle.Puzzle) bool {
+	var puzzles = puzzledb.Query(*limit, func(p puzzledb.Puzzle) bool {
 		if len(ids) > 0 && !contains(ids, p.ID) {
 			return false
 		}
@@ -73,10 +73,7 @@ func main() {
 	for pNum, p := range puzzles {
 		e.NewGame()
 		e.Position(p.Fen, nil)
-		e.Debug(*verbose)
-		if !*verbose {
-			e.Level = log.NONE // Disable UCI logging
-		}
+		e.Level = log.Level(*verbose)
 
 		var failed bool
 		var movesCompleted string
@@ -143,7 +140,7 @@ func main() {
 func tagSearch(tag string) {
 	var found = map[string]struct{}{}
 
-	puzzle.PuzzleDB(0, func(p puzzle.Puzzle) bool {
+	puzzledb.Query(0, func(p puzzledb.Puzzle) bool {
 		for _, theme := range p.Themes {
 			if tag == "*" || strings.Contains(theme, tag) {
 				found[theme] = struct{}{}
