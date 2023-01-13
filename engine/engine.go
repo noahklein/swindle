@@ -69,7 +69,10 @@ func (e *Engine) Position(fen string, moves []string) {
 	e.board = &board
 	e.ply = int16(e.board.Fullmoveno * 2)
 	e.history.Push(board.Hash())
+
 	e.transpositions.hits = 0
+	e.transpositions.age++
+
 	for _, move := range moves {
 		m, err := dragon.ParseMove(move)
 		if err != nil {
@@ -139,16 +142,15 @@ func (e *Engine) IsReady() {}
 func (e *Engine) ClearTT() { e.transpositions = NewTranspositionTable() }
 
 func (e *Engine) thinkTime(params uci.SearchParams) time.Duration {
-	time, inc := params.BlackTime, params.BlackInc
+	t, inc := params.BlackTime, params.BlackInc
 	if e.board.Wtomove {
-		time, inc = params.WhiteTime, params.WhiteInc
+		t, inc = params.WhiteTime, params.WhiteInc
 	}
 
-	if time == 0 {
+	if t == 0 {
 		return defualtThinkTime
 	}
 
-	const estimatedMovesRemaining = 40
-
-	return (time + inc*estimatedMovesRemaining) / estimatedMovesRemaining
+	mtg := time.Duration(params.MovesToGo)
+	return (t + inc*mtg) / mtg
 }

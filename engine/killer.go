@@ -23,7 +23,7 @@ func (k *Killer) Add(ply int16, move dragon.Move) {
 	defer k.Unlock()
 
 	kms := k.moves[ply]
-	if kms[0] == move || kms[1] == move {
+	if kms[0] == move {
 		return
 	}
 	// Push new move to front.

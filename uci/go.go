@@ -14,6 +14,7 @@ type SearchParams struct {
 	BlackTime time.Duration
 	WhiteInc  time.Duration
 	BlackInc  time.Duration
+	MovesToGo int // Moves till next time control. 0 if sudden death.
 
 	Depth    int
 	Infinite bool
@@ -86,6 +87,9 @@ func parseParams(args []string) SearchParams {
 			i++
 		case "binc":
 			sp.BlackInc = parseMs(args[i+1])
+			i++
+		case "movestogo":
+			sp.MovesToGo, _ = strconv.Atoi(args[i+1])
 			i++
 		case "movetime":
 			sp.moveTime = parseMs(args[i+1])

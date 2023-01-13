@@ -13,7 +13,7 @@ func init() {
 }
 
 const (
-	megabytes = 1024 / 8
+	megabytes = 200
 	MB        = 1024 * 1024
 	size      = uint64(unsafe.Sizeof(Entry{}))
 )
@@ -36,6 +36,7 @@ type Entry struct {
 	flag  NodeType
 	value int16
 	best  dragon.Move
+	age   uint8
 }
 
 // Transpositions is a transposition table (TT); used to memoize searched positions.
@@ -45,6 +46,7 @@ type Transpositions struct {
 	table      []Entry
 	full       uint64
 	hits       int
+	age        uint8
 }
 
 func NewTranspositionTable() *Transpositions {
@@ -63,9 +65,19 @@ func (tt *Transpositions) Add(ply int16, e Entry) {
 	defer tt.Unlock()
 
 	k := key(e.key)
-	if tt.table[k].flag != NodeUnknown {
+	existing := tt.table[k]
+
+	isEmpty := existing.flag == NodeUnknown
+
+	// Don't replace good entries.
+	if !isEmpty && (e.depth < existing.depth || existing.age < e.age) {
+		return
+	}
+
+	if isEmpty {
 		tt.full++
 	}
+
 	tt.table[k] = e
 }
 
