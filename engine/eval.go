@@ -82,7 +82,7 @@ func pieceEval(b *dragon.Bitboards) int16 {
 	return int16(score)
 }
 
-func badCapture(attacker, victim int) bool {
+func badCapture(attacker, victim int16) bool {
 	// Pawn captures don't lose material.
 	if attacker == dragon.Pawn {
 		return false

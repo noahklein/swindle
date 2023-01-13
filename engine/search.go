@@ -23,7 +23,7 @@ func (e *Engine) IterDeep(ctx context.Context, params uci.SearchParams) uci.Sear
 	alpha, beta := -infinity, infinity
 	exp := 1 // Exponentially increase window on window misses.
 
-	if entry, ok := e.transpositions.Get(e.board.Hash()); ok {
+	if entry, ok := e.transpositions.Get(e.board.Hash(), e.ply); ok {
 		alpha, beta = entry.value-window, entry.value+window
 	}
 
@@ -171,7 +171,7 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 	}
 
 	// Check transposition table.
-	if val, nt := e.transpositions.GetEval(e.board.Hash(), depth, alpha, beta); nt != NodeUnknown {
+	if val, nt := e.transpositions.GetEval(e.board.Hash(), depth, alpha, beta, e.ply); nt != NodeUnknown {
 		return val
 	}
 
@@ -268,7 +268,7 @@ func (e *Engine) Quiesce(alpha, beta int16) int16 {
 
 	alpha = max(alpha, score)
 
-	// TODO: handle checks specially.
+	// TODO: handle checks specially, need incremental check detection.
 	moves, inCheck := e.GenMoves()
 	if terminalScore, ok := e.terminal(len(moves), inCheck); ok {
 		return terminalScore
@@ -286,12 +286,12 @@ func (e *Engine) Quiesce(alpha, beta int16) int16 {
 		}
 
 		// Delta cutoff, this is hopeless.
-		victim, _ := dragon.GetPieceType(move.To(), e.board)
+		victim, _ := e.squares.PieceType(move.To())
 		if score+PieceValue[victim]+200 < alpha {
 			continue
 		}
 
-		attacker, _ := dragon.GetPieceType(move.From(), e.board)
+		attacker, _ := e.squares.PieceType(move.From())
 		if badCapture(attacker, victim) {
 			continue
 		}
@@ -335,7 +335,7 @@ func (e *Engine) PrincipalVariation(bestMove dragon.Move, depth int) []dragon.Mo
 }
 
 func (e *Engine) PVMove() (dragon.Move, bool) {
-	entry, ok := e.transpositions.Get(e.board.Hash())
+	entry, ok := e.transpositions.Get(e.board.Hash(), e.ply)
 	return entry.best, ok
 }
 
