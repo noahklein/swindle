@@ -14,7 +14,7 @@ const (
 	author  = "Noah Klein"
 	version = "1.0"
 
-	depth     = 10
+	depth     = 30
 	thinkTime = 5 * time.Second
 )
 

@@ -8,7 +8,8 @@ import (
 type Level int
 
 const (
-	UCI Level = iota
+	NONE Level = iota - 1
+	UCI
 	ERROR
 	WARN
 )
@@ -26,7 +27,9 @@ type Logger struct {
 
 // UCI communicates with the GUI.
 func (l Logger) UCI(s string, a ...any) {
-	fmt.Printf(s+"\n", a...)
+	if l.Level >= UCI {
+		fmt.Printf(s+"\n", a...)
+	}
 }
 
 // Error logging.

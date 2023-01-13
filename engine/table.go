@@ -13,7 +13,7 @@ func init() {
 }
 
 const (
-	megabytes = 2 * 1024
+	megabytes = 1024 / 2
 	MB        = 1024 * 1024
 	size      = uint64(unsafe.Sizeof(Entry{}))
 )

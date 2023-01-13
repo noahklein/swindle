@@ -11,6 +11,7 @@ import (
 
 	"github.com/noahklein/chess/elo"
 	"github.com/noahklein/chess/engine"
+	"github.com/noahklein/chess/log"
 	"github.com/noahklein/chess/puzzle"
 	"github.com/noahklein/chess/uci"
 	"github.com/noahklein/dragon"
@@ -20,10 +21,11 @@ import (
 
 var (
 	tag    = flag.String("tag", "", "tag filter")
-	id     = flag.String("id", "", "id filter")
+	id     = flag.String("id", "", "comma-seperated list of ids")
 	limit  = flag.Int("limit", 10, "limit the number of puzzles; 0 for all (not recommended)")
-	depth  = flag.Int("depth", 4, "depth to search puzzles at")
-	rating = flag.Int("rating", 0, "minimum rating of puzzles")
+	depth  = flag.Int("depth", 30, "depth to search puzzles at")
+	think  = flag.Duration("think", 5*time.Second, "how long to think")
+	rating = flag.Int("rating", 0, "min rating of puzzles")
 	length = flag.Int("length", 0, "puzzle length filter, must be even; 0 for all")
 
 	tsearch = flag.String("tsearch", "", "search for tags")
@@ -38,13 +40,13 @@ func main() {
 		return
 	}
 
-	if *id != "" {
-		*limit = 1
+	var ids []string
+	if len(*id) > 0 {
+		ids = strings.Split(*id, ",")
 	}
-
 	var puzzles = puzzle.PuzzleDB(*limit, func(p puzzle.Puzzle) bool {
-		if *id != "" {
-			return p.ID == *id
+		if len(ids) > 0 && !contains(ids, p.ID) {
+			return false
 		}
 		if *tag != "" && !contains(p.Themes, *tag) {
 			return false
@@ -64,6 +66,7 @@ func main() {
 	start := time.Now()
 
 	rating := elo.Default
+	var failedIDs []string
 
 	var e engine.Engine
 
@@ -71,6 +74,9 @@ func main() {
 		e.NewGame()
 		e.Position(p.Fen, nil)
 		e.Debug(*verbose)
+		if !*verbose {
+			e.Level = log.NONE // Disable UCI logging
+		}
 
 		var failed bool
 		var movesCompleted string
@@ -78,7 +84,7 @@ func main() {
 			e.Position(p.Fen, p.Moves[:i+1])
 			want := p.Moves[i+1]
 
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), *think)
 			result := e.IterDeep(ctx, uci.SearchParams{
 				Depth: *depth,
 			})
@@ -110,6 +116,7 @@ func main() {
 				color.Red(result.Print(start))
 
 				failed = true
+				failedIDs = append(failedIDs, p.ID)
 				break
 			}
 			movesCompleted += "."
@@ -128,6 +135,9 @@ func main() {
 	fmt.Println("Elapsed:", time.Since(start))
 	fmt.Println("Rating:", rating)
 
+	if len(failedIDs) != 0 {
+		fmt.Println("Failed:", strings.Join(failedIDs, ","))
+	}
 }
 
 func tagSearch(tag string) {
