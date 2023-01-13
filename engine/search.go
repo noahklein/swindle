@@ -30,9 +30,9 @@ func (e *Engine) IterDeep(ctx context.Context, params uci.SearchParams) uci.Sear
 		alpha, beta = entry.value-window, entry.value+window
 	}
 
+	start := time.Now()
 	var result uci.SearchResults
 	for depth := int16(0); ctx.Err() == nil && depth <= int16(params.Depth); {
-		start := time.Now()
 		result = e.Search(ctx, depth, alpha, beta)
 		score := result.Score
 

@@ -14,8 +14,8 @@ const (
 	author  = "Noah Klein"
 	version = "1.0"
 
-	depth     = 30
-	thinkTime = 5 * time.Second
+	defaultDepth     = 30
+	defualtThinkTime = 5 * time.Second
 )
 
 // The chess engine. Must call NewGame() to initialize, followed by Position().
@@ -81,17 +81,20 @@ func (e *Engine) Position(fen string, moves []string) {
 
 // Go is the search entry-point, called by the UCI go command.
 func (e *Engine) Go(params uci.SearchParams) uci.SearchResults {
-	// TODO: Smarter time management; look at remaining clock.
-	thinkTime := thinkTime
+	thinkTime := e.thinkTime(params)
 	if params.Infinite {
 		thinkTime = 1 * time.Hour
 	}
+
+	e.Warn("Thinking for %v", thinkTime.String())
+
+	// TODO: Smarter time management; look at remaining clock.
 	ctx, cancel := context.WithTimeout(context.Background(), thinkTime)
 	defer cancel()
 	e.cancel = cancel
 
 	if params.Depth == 0 {
-		params.Depth = depth
+		params.Depth = defaultDepth
 	}
 	if params.Infinite {
 		params.Depth = 100
@@ -134,3 +137,18 @@ func (e *Engine) Stop() {
 func (e *Engine) IsReady() {}
 
 func (e *Engine) ClearTT() { e.transpositions = NewTranspositionTable() }
+
+func (e *Engine) thinkTime(params uci.SearchParams) time.Duration {
+	time, inc := params.BlackTime, params.BlackInc
+	if e.board.Wtomove {
+		time, inc = params.WhiteTime, params.WhiteInc
+	}
+
+	if time == 0 {
+		return defualtThinkTime
+	}
+
+	const estimatedMovesRemaining = 40
+
+	return (time + inc*estimatedMovesRemaining) / estimatedMovesRemaining
+}
