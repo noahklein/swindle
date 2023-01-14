@@ -59,3 +59,9 @@ func Query(limit int, predicate func(Puzzle) bool) []Puzzle {
 
 	return puzzles
 }
+
+const lichess = "https://lichess.org/analysis/fromPosition/"
+
+func LichessUrl(fen string) string {
+	return lichess + strings.ReplaceAll(fen, " ", "_")
+}

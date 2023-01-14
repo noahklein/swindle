@@ -115,9 +115,6 @@ func playGame(fen string, depth int, thinkTime time.Duration) (uci.SearchResults
 func puzzleDepth(depth int) {
 	rand.Seed(time.Now().Unix())
 	puzzles := puzzledb.Query(10, func(p puzzledb.Puzzle) bool {
-		if rand.Float32() < 0.25 {
-			return false
-		}
 		for _, v := range p.Themes {
 			if v == "mate" {
 				return false

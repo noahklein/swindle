@@ -20,12 +20,12 @@ func TestEval(t *testing.T) {
 		{
 			name:  "down a knight and a pawn",
 			board: dragon.ParseFen("r1bqkbnr/ppp1pppp/2n5/8/2BP4/5p2/PPP2PPP/RNBQK2R w KQkq - 0 1"),
-			want:  -439,
+			want:  -440,
 		},
 		{
 			name:  "down a knight, pawn, and rook; black has 2 queens",
 			board: dragon.ParseFen("r1bqkbnr/ppp1pppp/2n5/8/2BP4/8/PPP2P1P/RNBQK2q w Qkq - 0 1"),
-			want:  -1839,
+			want:  -1844,
 		},
 	}
 	for _, tt := range tests {

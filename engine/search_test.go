@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	puzzledb "github.com/noahklein/chess/puzzle"
 	"github.com/noahklein/chess/uci"
 	"github.com/noahklein/dragon"
 )
@@ -38,7 +39,7 @@ func TestMate(t *testing.T) {
 			want:  "f8c5", wantMate: 2,
 		},
 		{
-			name:  "K+R vs K, mate in 11, w",
+			name:  "K+R vs K, mate in 8, w",
 			fen:   "8/8/8/8/4K1k1/4R3/8/8 w - - 0 1",
 			depth: 16,
 			want:  "e4e5", wantMate: 8,
@@ -55,6 +56,8 @@ func TestMate(t *testing.T) {
 			results := e.IterDeep(context.Background(), uci.SearchParams{
 				Depth: tt.depth,
 			})
+
+			t.Log(puzzledb.LichessUrl(tt.fen))
 
 			if results.Move != tt.want {
 				t.Errorf("Could not find mate: got %v, eval = %v ; want %v", results.Move, results.Score, tt.want)

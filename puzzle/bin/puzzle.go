@@ -105,7 +105,7 @@ func main() {
 				correct--
 				movesCompleted += "x"
 				log.Red("%6d) Failed %s %s", pNum+1, p.ID, movesCompleted)
-				log.Red(lichessUrl(p.Fen))
+				log.Red(puzzledb.LichessUrl(p.Fen))
 				log.Red("%v %v", p.Rating, strings.Join(p.Themes, ", "))
 				log.Red("Wrong move: got %v, want %v, %v", result.Move, want, p.Moves)
 				log.Red(result.Print(start))
@@ -166,10 +166,4 @@ func contains(tags []string, t string) bool {
 	}
 
 	return false
-}
-
-const lichess = "https://lichess.org/analysis/fromPosition/"
-
-func lichessUrl(fen string) string {
-	return lichess + strings.ReplaceAll(fen, " ", "_")
 }

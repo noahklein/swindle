@@ -24,6 +24,7 @@ type Engine struct {
 	board *dragon.Board
 
 	ply            int16
+	hashSize       int
 	transpositions *Transpositions
 	killer         *Killer
 	history        *History
@@ -39,16 +40,21 @@ func (e *Engine) About() (string, string, string) {
 }
 
 func (e *Engine) NewGame() {
+	if e.hashSize == 0 {
+		e.hashSize = 100
+	}
+
 	board := dragon.ParseFen(dragon.Startpos)
 	e.killer = NewKiller()
 	e.board = &board
-	e.transpositions = NewTranspositionTable()
+	e.transpositions = NewTranspositionTable(uint64(e.hashSize))
 	e.nodeCount = NodeCount{}
 	e.history = &History{}
 	e.squares = NewSquares(&board)
 	e.ply = 1
 	e.cancel = func() {}
 	e.debug = true
+
 }
 
 // Copy an engine for concurrent search.
@@ -145,7 +151,7 @@ func (e *Engine) Stop() {
 // IsReady should block until the engine is ready to search.
 func (e *Engine) IsReady() {}
 
-func (e *Engine) ClearTT() { e.transpositions = NewTranspositionTable() }
+func (e *Engine) ClearTT() { e.transpositions = NewTranspositionTable(uint64(e.hashSize)) }
 
 func (e *Engine) thinkTime(params uci.SearchParams) time.Duration {
 	t, inc := params.BlackTime, params.BlackInc

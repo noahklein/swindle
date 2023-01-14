@@ -1,25 +1,16 @@
 package engine
 
 import (
-	"fmt"
 	"sync"
 	"unsafe"
 
 	"github.com/noahklein/dragon"
 )
 
-func init() {
-	fmt.Println("Hash size:", megabytes, "mb")
-}
-
 const (
-	megabytes = 200
 	MB        = 1024 * 1024
-	size      = uint64(unsafe.Sizeof(Entry{}))
+	entrySize = uint64(unsafe.Sizeof(Entry{}))
 )
-
-// const tableSize uint64 = 0xFFFFF
-var tableSize uint64 = roundPow2(megabytes * MB / size)
 
 type NodeType uint8
 
@@ -44,18 +35,24 @@ type Entry struct {
 type Transpositions struct {
 	sync.Mutex // TODO: this can be done locklessly.
 	table      []Entry
+	size       uint64
 	full       uint64
 	hits       int
 	age        uint8
 }
 
-func NewTranspositionTable() *Transpositions {
+func NewTranspositionTable(size uint64) *Transpositions {
+	if size == 0 {
+		size = 1
+	}
+	size = size * MB / entrySize
 	return &Transpositions{
-		table: make([]Entry, tableSize),
+		table: make([]Entry, size),
+		size:  size,
 	}
 }
 
-func key(hash uint64) uint64 { return hash % tableSize }
+func (tt *Transpositions) key(hash uint64) uint64 { return hash % tt.size }
 
 // Always replaces previous entries.
 func (tt *Transpositions) Add(ply int16, e Entry) {
@@ -71,7 +68,7 @@ func (tt *Transpositions) Add(ply int16, e Entry) {
 	tt.Lock()
 	defer tt.Unlock()
 
-	k := key(e.key)
+	k := tt.key(e.key)
 	existing := tt.table[k]
 
 	isEmpty := existing.flag == NodeUnknown
@@ -90,7 +87,7 @@ func (tt *Transpositions) Add(ply int16, e Entry) {
 
 func (tt *Transpositions) Get(hash uint64, ply int16) (Entry, bool) {
 	tt.Lock()
-	e := tt.table[key(hash)]
+	e := tt.table[tt.key(hash)]
 	ok := e.key == hash
 	if ok {
 		tt.hits++
@@ -130,7 +127,7 @@ func (tt *Transpositions) GetEval(hash uint64, depth int, alpha, beta, ply int16
 func (tt *Transpositions) PermillFull() int {
 	tt.Lock()
 	defer tt.Unlock()
-	return int(1000 * float64(tt.full) / float64(tableSize))
+	return int(1000 * float64(tt.full) / float64(tt.size))
 }
 
 func (tt *Transpositions) Hits() int {
@@ -184,15 +181,6 @@ func (hst *History) Copy() *History {
 	var c History
 	c.positions = hst.positions
 	return &c
-}
-
-// Round to the nearest power-of-two.
-func roundPow2(n uint64) uint64 {
-	pow := uint64(1)
-	for pow < n {
-		pow *= 2
-	}
-	return pow
 }
 
 // Squares is a square-centric representation of the board; useful for quick piece-type

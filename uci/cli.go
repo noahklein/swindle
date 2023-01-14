@@ -26,7 +26,7 @@ type Engine interface {
 
 	// IsReady should block until the engine is ready to search.
 	IsReady()
-	SetOption(option string, value string)
+	SetOption(option string, value string) error
 	Debug(isOn bool)
 	ClearTT()
 }
@@ -69,7 +69,9 @@ func handle(engine Engine, input string) error {
 			fmt.Println("Not enough args to setoption: want 4 args, got", args)
 			return nil
 		}
-		engine.SetOption(args[1], args[3])
+		if err := engine.SetOption(args[1], args[3]); err != nil {
+			fmt.Println("Failed to set option:", err)
+		}
 	case "ucinewgame":
 		engine.NewGame()
 	case "isready":

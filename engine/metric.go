@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/noahklein/chess/log"
@@ -26,7 +27,22 @@ func (nc *NodeCount) Reset() {
 }
 
 // TODO: Implement.
-func (e *Engine) SetOption(option string, value string) {}
+func (e *Engine) SetOption(option string, value string) error {
+	switch option {
+	case "Hash":
+		i, err := strconv.Atoi(value)
+		if err != nil {
+			return err
+		}
+		e.hashSize = i
+		e.UCI("Hash size set to %v mb", e.hashSize)
+
+	default:
+		e.Warn("Unsupported option: %v", option)
+	}
+
+	return nil
+}
 
 // Debug enables logging and metric reporting.
 func (e *Engine) Debug(isOn bool) {
