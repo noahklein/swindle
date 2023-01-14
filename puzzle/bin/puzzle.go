@@ -100,16 +100,16 @@ func main() {
 				moves, inCheck := e.GenMoves()
 				if inCheck && len(moves) == 0 {
 					movesCompleted += "."
-					color.Yellow("%3d) Passed %s %s (alternate solution)", pNum+1, p.ID, movesCompleted)
+					color.Yellow("%6d) Passed %s %s (alternate solution)", pNum+1, p.ID, movesCompleted)
 					break
 				}
 
 				correct--
 				movesCompleted += "x"
-				color.Red("%3d) Failed %s %s", pNum+1, p.ID, movesCompleted)
+				color.Red("%6d) Failed %s %s", pNum+1, p.ID, movesCompleted)
 				color.Red(lichessUrl(p.Fen))
 				color.Red("%v %v", p.Rating, strings.Join(p.Themes, ", "))
-				color.Red(`Wrong move: got %v, want %v, %v`, result.Move, want, p.Moves)
+				color.Red("Wrong move: got %v, want %v, %v", result.Move, want, p.Moves)
 				color.Red(result.Print(start))
 
 				failed = true
@@ -120,7 +120,7 @@ func main() {
 		}
 		score := 0
 		if !failed {
-			color.Green("%3d) Passed %s %s", pNum+1, p.ID, movesCompleted)
+			color.Green("%6d) Passed %s %s", pNum+1, p.ID, movesCompleted)
 			score = 1
 		}
 		rating, _ = elo.Rating(rating, p.Rating, float64(score))
