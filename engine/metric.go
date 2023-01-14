@@ -44,6 +44,10 @@ func (e *Engine) SetOption(option string, value string) error {
 	return nil
 }
 
+func (e *Engine) PrintOptions() {
+	e.UCI("option name Hash type spin default 1 min 1 max 1024")
+}
+
 // Debug enables logging and metric reporting.
 func (e *Engine) Debug(isOn bool) {
 	e.debug = isOn

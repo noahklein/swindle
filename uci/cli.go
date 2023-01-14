@@ -27,6 +27,8 @@ type Engine interface {
 	// IsReady should block until the engine is ready to search.
 	IsReady()
 	SetOption(option string, value string) error
+	// Print a list of available options to the GUI at startup.
+	PrintOptions()
 	Debug(isOn bool)
 	ClearTT()
 }
@@ -63,6 +65,7 @@ func handle(engine Engine, input string) error {
 		name, author, verison := engine.About()
 		fmt.Printf("id name %s %s\n", name, verison)
 		fmt.Printf("id author %s\n", author)
+		engine.PrintOptions()
 		fmt.Println("uciok")
 	case "setoption":
 		if len(args) < 4 {
