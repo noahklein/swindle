@@ -15,6 +15,16 @@ const (
 	kingVal   = queenVal * 2
 )
 
+var (
+	// Unopposed pawn bonus.
+	unopposedPawn = [2]int16{10, 50}
+	// Doubled pawn penalty.
+	doubledPawn = [2]int16{-5, -30}
+	// Bonus for rooks on open and semi-open files.
+	rookOpen     = [2]int16{50, 100}
+	rookSemiOpen = [2]int16{25, 50}
+)
+
 var PieceValue = [...]int16{0, pawnVal, knightVal, bishopVal, rookVal, queenVal, kingVal}
 
 // How much to increment the game phase counter for each piece type.
@@ -24,9 +34,13 @@ func Eval(board *dragon.Board) int16 {
 	// Game phase is incremented for each piece.
 	var phase int16
 
-	// [White, Black]
-	var mgScore [2]int16
-	var egScore [2]int16
+	var (
+		// [White, Black]
+		mgScore [2]int16
+		egScore [2]int16
+
+		pieces = [2]dragon.Bitboards{board.White, board.Black}
+	)
 
 	// Give bonus points for piece positions.
 	for square := uint8(0); square < 64; square++ {
@@ -40,6 +54,31 @@ func Eval(board *dragon.Board) int16 {
 			color = 1
 		}
 
+		switch piece {
+		case dragon.Pawn:
+			// Penalize doubled pawns.
+			ourPawnsOnFile := pieces[color].Pawns & dragon.FileMasks[dragon.File(square)]
+			if ourPawnsOnFile > 1 {
+				mgScore[color] += doubledPawn[0]
+				egScore[color] += doubledPawn[1]
+			}
+			// Encourage unopposed pawns.
+			theirPawnsOnFile := pieces[1-color].Pawns & dragon.FileMasks[dragon.File(square)]
+			if theirPawnsOnFile == 0 {
+				mgScore[color] += unopposedPawn[0]
+				egScore[color] += unopposedPawn[1]
+			}
+		case dragon.Rook:
+			pawnsOnFile := (board.White.Pawns | board.Black.Pawns) & dragon.FileMasks[dragon.File(square)]
+			if pawnsOnFile == 0 {
+				mgScore[color] += rookOpen[0]
+				egScore[color] += rookOpen[1]
+			} else if pawnsOnFile == 1 {
+				mgScore[color] += rookSemiOpen[0]
+				egScore[color] += rookSemiOpen[1]
+			}
+		}
+
 		pc := pieceColor(piece, isWhite)
 
 		mgScore[color] += MidGameTable[pc][square]
@@ -47,13 +86,15 @@ func Eval(board *dragon.Board) int16 {
 		phase += gamePhaseInc[piece-1]
 	}
 
+	material := pieceEval(&board.White) - pieceEval(&board.Black)
+
+	// Tapered evaluation: weigh midgame and endgame scores to smoothly transition between
+	// game phases.
 	mg := mgScore[0] - mgScore[1]
 	eg := egScore[0] - mgScore[1]
 
 	mgWeight := min(phase, 24)
 	egWeight := 24 - mgWeight
-
-	material := pieceEval(&board.White) - pieceEval(&board.Black)
 
 	phaseScore := (mg*mgWeight + eg*egWeight) / 24
 	return whiteToMove(board) * (material + phaseScore)
