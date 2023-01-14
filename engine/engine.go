@@ -151,7 +151,9 @@ func (e *Engine) Stop() {
 // IsReady should block until the engine is ready to search.
 func (e *Engine) IsReady() {}
 
-func (e *Engine) ClearTT() { e.transpositions = NewTranspositionTable(uint64(e.hashSize)) }
+func (e *Engine) ClearTT() {
+	e.transpositions = NewTranspositionTable(uint64(e.hashSize))
+}
 
 func (e *Engine) thinkTime(params uci.SearchParams) time.Duration {
 	t, inc := params.BlackTime, params.BlackInc

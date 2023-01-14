@@ -2,10 +2,8 @@ package engine
 
 import (
 	"strconv"
-	"strings"
 
 	"github.com/noahklein/chess/log"
-	"github.com/noahklein/dragon"
 )
 
 // NodeCount tracks useful stats for reporting. Not thread-safe.
@@ -58,12 +56,4 @@ func (e *Engine) Debug(isOn bool) {
 	if isOn {
 		e.Logger.Level = log.WARN
 	}
-}
-
-func stringMoves(ms []dragon.Move) string {
-	var b strings.Builder
-	for _, m := range ms {
-		b.WriteString(m.String() + " ")
-	}
-	return b.String()
 }
