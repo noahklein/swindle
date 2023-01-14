@@ -68,13 +68,23 @@ func handle(engine Engine, input string) error {
 		engine.PrintOptions()
 		fmt.Println("uciok")
 	case "setoption":
-		if len(args) < 4 {
-			fmt.Println("Not enough args to setoption: want 4 args, got", args)
-			return nil
+
+		argString := strings.Join(args, " ")
+		args = strings.Split(argString, "name ")
+		if len(args) != 2 {
+			fmt.Println("Failed to parse setoption command: missing 'name'")
 		}
-		if err := engine.SetOption(args[1], args[3]); err != nil {
+		args = strings.Split(args[1], " value ")
+		option := args[0]
+		value := ""
+		if len(args) > 1 {
+			value = args[1]
+		}
+
+		if err := engine.SetOption(option, value); err != nil {
 			fmt.Println("Failed to set option:", err)
 		}
+
 	case "ucinewgame":
 		engine.NewGame()
 	case "isready":

@@ -29,6 +29,8 @@ func (nc *NodeCount) Reset() {
 // TODO: Implement.
 func (e *Engine) SetOption(option string, value string) error {
 	switch option {
+	case "Clear Hash":
+		e.ClearTT()
 	case "Hash":
 		i, err := strconv.Atoi(value)
 		if err != nil {
@@ -46,6 +48,7 @@ func (e *Engine) SetOption(option string, value string) error {
 
 func (e *Engine) PrintOptions() {
 	e.UCI("option name Hash type spin default 1 min 1 max 1024")
+	e.UCI("option name Clear Hash type button")
 }
 
 // Debug enables logging and metric reporting.
