@@ -24,11 +24,13 @@ type Engine struct {
 	board *dragon.Board
 
 	ply            int16
-	hashSize       int
 	transpositions *Transpositions
 	killer         *Killer
 	history        *History
 	squares        *Squares
+
+	hashSizeMB      int // Space in MB allocated for transposition table.
+	disableNullMove bool
 
 	nodeCount NodeCount
 	debug     bool // Enables logs/metrics.
@@ -40,21 +42,20 @@ func (e *Engine) About() (string, string, string) {
 }
 
 func (e *Engine) NewGame() {
-	if e.hashSize == 0 {
-		e.hashSize = 100
+	if e.hashSizeMB == 0 {
+		e.hashSizeMB = 128
 	}
 
 	board := dragon.ParseFen(dragon.Startpos)
 	e.killer = NewKiller()
 	e.board = &board
-	e.transpositions = NewTranspositionTable(uint64(e.hashSize))
+	e.transpositions = NewTranspositionTable(uint64(e.hashSizeMB))
 	e.nodeCount = NodeCount{}
 	e.history = &History{}
 	e.squares = NewSquares(&board)
 	e.ply = 1
 	e.cancel = func() {}
 	e.debug = true
-
 }
 
 // Copy an engine for concurrent search.
@@ -152,7 +153,7 @@ func (e *Engine) Stop() {
 func (e *Engine) IsReady() {}
 
 func (e *Engine) ClearTT() {
-	e.transpositions = NewTranspositionTable(uint64(e.hashSize))
+	e.transpositions = NewTranspositionTable(uint64(e.hashSizeMB))
 }
 
 func (e *Engine) thinkTime(params uci.SearchParams) time.Duration {

@@ -13,8 +13,6 @@ const (
 	infinity int16 = 20000
 	mateVal  int16 = -15000
 	drawVal  int16 = 0
-
-	nullMoveAllowed = true
 )
 
 // Iterative deepening with aspiration window. After each iteration we use the eval
@@ -186,9 +184,10 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 		return e.Quiesce(alpha, beta)
 	}
 
-	// Null-move pruning: pass turn and do a zero-window search at reduced depth to try
-	// and produce a beta-cutoff.
-	if nullMoveAllowed && !inCheck {
+	// Null-move pruning: pass turn and do a zero-window search at reduced depth, if
+	// opponent still has no good moves, prune this node. Note: this causes issues if
+	// we're in zugzwang.
+	if e.disableNullMove && !inCheck {
 		r := 2
 		if depth >= 6 {
 			r = 3

@@ -81,7 +81,7 @@ func handle(engine Engine, input string) error {
 			value = args[1]
 		}
 
-		if err := engine.SetOption(option, value); err != nil {
+		if err := engine.SetOption(strings.ToLower(option), strings.ToLower(value)); err != nil {
 			fmt.Println("Failed to set option:", err)
 		}
 

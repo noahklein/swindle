@@ -27,15 +27,20 @@ func (nc *NodeCount) Reset() {
 // TODO: Implement.
 func (e *Engine) SetOption(option string, value string) error {
 	switch option {
-	case "Clear Hash":
+	case "nullmove":
+		e.disableNullMove = false
+		if value == "false" {
+			e.disableNullMove = true
+		}
+	case "clear hash":
 		e.ClearTT()
-	case "Hash":
+	case "hash":
 		i, err := strconv.Atoi(value)
 		if err != nil {
 			return err
 		}
-		e.hashSize = i
-		e.UCI("Hash size set to %v mb", e.hashSize)
+		e.hashSizeMB = i
+		e.UCI("Hash size set to %v mb", e.hashSizeMB)
 
 	default:
 		e.Warn("Unsupported option: %v", option)
@@ -45,8 +50,9 @@ func (e *Engine) SetOption(option string, value string) error {
 }
 
 func (e *Engine) PrintOptions() {
-	e.UCI("option name Hash type spin default 1 min 1 max 1024")
+	e.UCI("option name Nullmove type check default true")
 	e.UCI("option name Clear Hash type button")
+	e.UCI("option name Hash type spin default 16 min 1 max 1024")
 }
 
 // Debug enables logging and metric reporting.
