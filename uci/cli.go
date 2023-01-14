@@ -6,11 +6,10 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
-	"github.com/fatih/color"
+	"github.com/noahklein/chess/log"
 )
 
 const startingFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
@@ -34,7 +33,7 @@ type Engine interface {
 
 func Run(engine Engine) {
 	name, author, version := engine.About()
-	color.Green(`%s v%s by %s`, name, version, author)
+	log.Green(`%s v%s by %s`, name, version, author)
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
@@ -46,7 +45,7 @@ func Run(engine Engine) {
 		if err := handle(engine, input); err == errExit {
 			return
 		} else if err != nil {
-			log.Fatal(err)
+			panic(err)
 		}
 	}
 }
@@ -67,7 +66,7 @@ func handle(engine Engine, input string) error {
 		fmt.Println("uciok")
 	case "setoption":
 		if len(args) < 4 {
-			log.Printf("Not enough args to setoption: want 4 args, got %v\n", args)
+			fmt.Println("Not enough args to setoption: want 4 args, got", args)
 			return nil
 		}
 		engine.SetOption(args[1], args[3])

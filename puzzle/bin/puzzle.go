@@ -15,8 +15,6 @@ import (
 	puzzledb "github.com/noahklein/chess/puzzle"
 	"github.com/noahklein/chess/uci"
 	"github.com/noahklein/dragon"
-
-	"github.com/fatih/color"
 )
 
 var (
@@ -60,7 +58,7 @@ func main() {
 		return true
 	})
 
-	color.White("Attempting %v puzzles", len(puzzles))
+	fmt.Printf("Attempting %v puzzles\n", len(puzzles))
 
 	correct := len(puzzles)
 	start := time.Now()
@@ -100,17 +98,17 @@ func main() {
 				moves, inCheck := e.GenMoves()
 				if inCheck && len(moves) == 0 {
 					movesCompleted += "."
-					color.Yellow("%6d) Passed %s %s (alternate solution)", pNum+1, p.ID, movesCompleted)
+					log.Yellow("%6d) Passed %s %s (alternate solution)", pNum+1, p.ID, movesCompleted)
 					break
 				}
 
 				correct--
 				movesCompleted += "x"
-				color.Red("%6d) Failed %s %s", pNum+1, p.ID, movesCompleted)
-				color.Red(lichessUrl(p.Fen))
-				color.Red("%v %v", p.Rating, strings.Join(p.Themes, ", "))
-				color.Red("Wrong move: got %v, want %v, %v", result.Move, want, p.Moves)
-				color.Red(result.Print(start))
+				log.Red("%6d) Failed %s %s", pNum+1, p.ID, movesCompleted)
+				log.Red(lichessUrl(p.Fen))
+				log.Red("%v %v", p.Rating, strings.Join(p.Themes, ", "))
+				log.Red("Wrong move: got %v, want %v, %v", result.Move, want, p.Moves)
+				log.Red(result.Print(start))
 
 				failed = true
 				failedIDs = append(failedIDs, p.ID)
@@ -120,7 +118,7 @@ func main() {
 		}
 		score := 0
 		if !failed {
-			color.Green("%6d) Passed %s %s", pNum+1, p.ID, movesCompleted)
+			log.Green("%6d) Passed %s %s", pNum+1, p.ID, movesCompleted)
 			score = 1
 		}
 		rating, _ = elo.Rating(rating, p.Rating, float64(score))

@@ -19,6 +19,7 @@ const (
 	reset  = escape + "[m"
 	yellow = escape + "[33m"
 	red    = escape + "[31m"
+	green  = escape + "[32m"
 )
 
 type Logger struct {
@@ -53,5 +54,16 @@ func (l Logger) Fatal(s string, a ...any) {
 
 func color(clr string, s string, a ...any) string {
 	return fmt.Sprintf(clr+s+reset, a...)
+}
 
+func Green(s string, a ...any) {
+	fmt.Println(color(green, s, a...))
+}
+
+func Yellow(s string, a ...any) {
+	fmt.Println(color(yellow, s, a...))
+}
+
+func Red(s string, a ...any) {
+	fmt.Println(color(red, s, a...))
 }

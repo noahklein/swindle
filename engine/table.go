@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	fmt.Println("Hash size:", tableSize/MB, "mb")
+	fmt.Println("Hash size:", megabytes, "mb")
 }
 
 const (
@@ -196,8 +196,12 @@ func roundPow2(n uint64) uint64 {
 }
 
 // Squares is a square-centric representation of the board; useful for quick piece-type
-// lookups. It's incrementally updated on every move.
+// lookups. It's incrementally updated on every move. Black pieces are negative, i.e.
 type Squares struct {
+	// White pieces are positive, black pieces are negative:
+	//  0 = Nothing
+	//  1 = wP,  2 = wN, ...  6 = wK
+	// -1 = bP, -2 = bN, ... -6 = bK
 	squares [64]int16
 }
 

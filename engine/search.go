@@ -13,6 +13,8 @@ const (
 	infinity int16 = 20000
 	mateVal  int16 = -15000
 	drawVal  int16 = 0
+
+	nullMoveAllowed = true
 )
 
 // Iterative deepening with aspiration window. After each iteration we use the eval
@@ -129,6 +131,11 @@ func (e *Engine) Search(ctx context.Context, depth, alpha, beta int16) uci.Searc
 	}
 	wg.Wait()
 
+	pctQNodes := 100 * float64(qNodes) / float64(nodes)
+	if pctQNodes > 65 {
+		e.Warn("Quiescent nodes: %v / %v; %.2f%%", qNodes, nodes, pctQNodes)
+	}
+
 	return results
 }
 
@@ -179,10 +186,26 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 		return e.Quiesce(alpha, beta)
 	}
 
+	// Null-move pruning: pass turn and do a zero-window search at reduced depth to try
+	// and produce a beta-cutoff.
+	if nullMoveAllowed && !inCheck {
+		r := 2
+		if depth >= 6 {
+			r = 3
+		}
+
+		undoNull := e.board.NullMove()
+		score := -e.AlphaBeta(-beta, -beta+1, depth-r)
+		undoNull()
+		if score >= beta {
+			return beta
+		}
+	}
+
 	if len(moves) == 1 {
 		// Only one reply, this ply is free. Extend search.
 		// TODO: constrain this.
-		// depth++
+		depth++
 	}
 
 	// Assume this is an alpha node.
@@ -268,7 +291,7 @@ func (e *Engine) Quiesce(alpha, beta int16) int16 {
 
 	alpha = max(alpha, score)
 
-	// TODO: handle checks specially, need incremental check detection.
+	// TODO: handle checks specially.
 	moves, inCheck := e.GenMoves()
 	if terminalScore, ok := e.terminal(len(moves), inCheck); ok {
 		return terminalScore
