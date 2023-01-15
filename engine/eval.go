@@ -42,7 +42,7 @@ func Eval(board *dragon.Board) int16 {
 		pieces = [2]dragon.Bitboards{board.White, board.Black}
 	)
 
-	// Give bonus points for piece positions.
+	// Give bonus points for piece positions and other heuristics.
 	for square := uint8(0); square < 64; square++ {
 		piece, isWhite := dragon.GetPieceType(square, board)
 		if piece == dragon.Nothing {
@@ -63,11 +63,12 @@ func Eval(board *dragon.Board) int16 {
 				egScore[color] += doubledPawn[1]
 			}
 			// Encourage unopposed pawns.
-			theirPawnsOnFile := pieces[1-color].Pawns & dragon.FileMasks[dragon.File(square)]
+			theirPawnsOnFile := pieces[other(color)].Pawns & dragon.FileMasks[dragon.File(square)]
 			if theirPawnsOnFile == 0 {
 				mgScore[color] += unopposedPawn[0]
 				egScore[color] += unopposedPawn[1]
 			}
+
 		case dragon.Rook:
 			pawnsOnFile := (board.White.Pawns | board.Black.Pawns) & dragon.FileMasks[dragon.File(square)]
 			if pawnsOnFile == 0 {
@@ -152,6 +153,8 @@ func mateScore(score int16, ply int16) int16 {
 
 	return mate
 }
+
+func other(color int) int { return 1 - color }
 
 // Branchless abs. Only works if MinInt16 <= a <= MaxInt16.
 func abs(n int16) int16 {

@@ -12,7 +12,7 @@ import (
 const (
 	name    = "Swindle"
 	author  = "Noah Klein"
-	version = "1.0"
+	version = "2.0"
 
 	defaultDepth     = 30
 	defualtThinkTime = 5 * time.Second
