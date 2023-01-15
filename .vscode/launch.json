@@ -3,6 +3,13 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "chess",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/chess/bin/main.go"
+        },
+        {
             "name": "Launch Package",
             "type": "go",
             "request": "launch",
