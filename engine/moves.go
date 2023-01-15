@@ -10,7 +10,9 @@ import (
 // Searching better moves first helps us prune nodes with beta cutoffs.
 func (e *Engine) sortMoves(moves []dragon.Move) []dragon.Move {
 	var (
-		out, killers, checks, captures, others []dragon.Move
+		out = make([]dragon.Move, 0, len(moves))
+
+		killers, checks, captures, others []dragon.Move
 	)
 
 	pv, pvOk := e.PVMove()
@@ -40,16 +42,26 @@ func (e *Engine) sortMoves(moves []dragon.Move) []dragon.Move {
 	return append(out, others...)
 }
 
+var mvvLvaTable = [7][7]int16{
+	{0, 0, 0, 0, 0, 0, 0},       // victim 0, Not a capture.
+	{0, 15, 14, 13, 12, 11, 10}, // victim P, attacker 0, P, N, B, R, Q, K
+	{0, 25, 24, 23, 22, 21, 20}, // victim N, attacker 0, P, N, B, R, Q, K
+	{0, 35, 34, 33, 32, 31, 30}, // victim B, attacker 0, P, N, B, R, Q, K
+	{0, 45, 44, 43, 42, 41, 40}, // victim R, attacker 0, P, N, B, R, Q, K
+	{0, 55, 54, 53, 52, 51, 50}, // victim Q, attacker 0, P, N, B, R, Q, K
+	{0, 0, 0, 0, 0, 0, 0},       // victim K, King can't be captured.
+}
+
 // Most-Valuable Victim/Least-Valuable attacker. Search PxQ, before QxP.
 func (e *Engine) mvvLva(captures []dragon.Move) {
 	sort.Slice(captures, func(i, j int) bool {
-		fa, _ := e.squares.PieceType(captures[i].From())
-		ta, _ := e.squares.PieceType(captures[i].To())
+		ai, _ := e.squares.PieceType(captures[i].From())
+		vi, _ := e.squares.PieceType(captures[i].To())
 
-		fb, _ := e.squares.PieceType(captures[j].From())
-		tb, _ := e.squares.PieceType(captures[j].To())
+		aj, _ := e.squares.PieceType(captures[j].From())
+		vj, _ := e.squares.PieceType(captures[j].To())
 
-		return ta-fa > tb-fb
+		return mvvLvaTable[vi][ai] > mvvLvaTable[vj][aj]
 	})
 }
 

@@ -31,7 +31,7 @@ type Entry struct {
 }
 
 // Transpositions is a transposition table (TT); used to memoize searched positions.
-// TTs add search-instability.
+// TTs add search-instability. Thread-safe.
 type Transpositions struct {
 	sync.Mutex // TODO: this can be done locklessly.
 	table      []Entry

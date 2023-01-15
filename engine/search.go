@@ -36,6 +36,7 @@ func (e *Engine) IterDeep(ctx context.Context, params uci.SearchParams) uci.Sear
 	// Default best move is first move in case of timeout before first iteration.
 	bestResult := uci.SearchResults{Move: moves[0].String()}
 	for depth := int16(1); ctx.Err() == nil && depth <= int16(params.Depth); {
+		e.Warn("depth=%v, ab: %v, %v", depth, alpha, beta)
 		result := e.Search(ctx, depth, alpha, beta)
 		score := result.Score
 
@@ -95,7 +96,7 @@ func (e *Engine) Search(ctx context.Context, depth, alpha, beta int16) uci.Searc
 			e.nodeCount.Inc()
 
 			unmove := e.Move(move)
-			score := -e.AlphaBeta(-beta, -alpha, int(depth))
+			score := -e.AlphaBeta(ctx, -beta, -alpha, int(depth))
 			unmove()
 
 			bestMu.Lock()
@@ -143,8 +144,10 @@ func (e *Engine) Search(ctx context.Context, depth, alpha, beta int16) uci.Searc
 // It stops evaluating a move when at least one possibility has been found that
 // proves the move to be worse than a previously examined move. In other words,
 // you only need one refutation to know a move is bad.
-func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
+func (e *Engine) AlphaBeta(ctx context.Context, alpha, beta int16, depth int) int16 {
 	e.nodeCount.Inc()
+	// Only do forward-pruning techniques in zero-window search.
+	pvNode := alpha != beta-1
 
 	if e.Draw() {
 		return drawVal
@@ -180,23 +183,14 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 		return val
 	}
 
-	if depth <= 0 {
+	if depth <= 0 || ctx.Err() != nil {
 		return e.Quiesce(alpha, beta)
 	}
 
-	// Null-move pruning: pass turn and do a zero-window search at reduced depth, if
-	// opponent still has no good moves, prune this node. Note: this causes issues if
-	// we're in zugzwang.
-	if e.disableNullMove && !inCheck {
-		r := 2
-		if depth >= 6 {
-			r = 3
-		}
-
-		undoNull := e.board.NullMove()
-		score := -e.AlphaBeta(-beta, -beta+1, depth-r)
-		undoNull()
-		if score >= beta {
+	// Null-move pruning.
+	// TODO: skip this in endgames.
+	if !e.disableNullMove && !pvNode && !inCheck && depth >= 3 {
+		if score := e.searchNullMove(ctx, -beta, depth); score >= beta {
 			return beta
 		}
 	}
@@ -227,14 +221,14 @@ func (e *Engine) AlphaBeta(alpha, beta int16, depth int) int16 {
 
 		var score int16
 		if foundPV {
-			// Search tiny window.
-			score = -e.AlphaBeta(-alpha-1, -alpha, moveDepth)
+			// Zero-window search.
+			score = -e.AlphaBeta(ctx, -alpha-1, -alpha, moveDepth)
 			// If we failed, search again with normal window.
 			if score > alpha && score < beta {
-				score = -e.AlphaBeta(-beta, -alpha, moveDepth)
+				score = -e.AlphaBeta(ctx, -beta, -alpha, moveDepth)
 			}
 		} else {
-			score = -e.AlphaBeta(-beta, -alpha, moveDepth)
+			score = -e.AlphaBeta(ctx, -beta, -alpha, moveDepth)
 		}
 		unmove()
 
@@ -302,18 +296,18 @@ func (e *Engine) Quiesce(alpha, beta int16) int16 {
 			return score
 		}
 
+		victim, _ := e.squares.PieceType(move.To())
 		// Skip non-captures.
-		if !Occupied(e.board, move.To()) {
+		if victim == dragon.Nothing {
 			continue
 		}
-
 		// Delta cutoff, this is hopeless.
-		victim, _ := e.squares.PieceType(move.To())
 		if score+PieceValue[victim]+200 < alpha {
 			continue
 		}
 
 		attacker, _ := e.squares.PieceType(move.From())
+		// Skip captures that lose material.
 		if badCapture(attacker, victim) {
 			continue
 		}
@@ -335,6 +329,21 @@ func (e *Engine) Quiesce(alpha, beta int16) int16 {
 	}
 
 	return alpha
+}
+
+// Pass turn and do a zero-window search at reduced depth, if opponent still has no
+// good moves, prune this node. Note: this causes issues if we're in zugzwang.
+func (e *Engine) searchNullMove(ctx context.Context, beta int16, depth int) int16 {
+	r := 2
+	if depth >= 6 {
+		r = 3
+	}
+
+	undoNull := e.board.NullMove()
+	score := -e.AlphaBeta(ctx, -beta, -beta+1, depth-r)
+	undoNull()
+
+	return score
 }
 
 // Gets the principal variation by recursively following the best moves in the

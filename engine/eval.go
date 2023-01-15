@@ -21,8 +21,8 @@ var (
 	// Doubled pawn penalty.
 	doubledPawn = [2]int16{-5, -30}
 	// Bonus for rooks on open and semi-open files.
-	rookOpen     = [2]int16{50, 100}
-	rookSemiOpen = [2]int16{25, 50}
+	rookOpen     = [2]int16{15, 30}
+	rookSemiOpen = [2]int16{5, 7}
 )
 
 var PieceValue = [...]int16{0, pawnVal, knightVal, bishopVal, rookVal, queenVal, kingVal}
@@ -130,7 +130,7 @@ func badCapture(attacker, victim int16) bool {
 	}
 
 	attVal, vicVal := PieceValue[attacker], PieceValue[victim]
-	return vicVal < attVal-pawnVal/2
+	return vicVal < attVal-50
 }
 
 const (

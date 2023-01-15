@@ -2,6 +2,7 @@ package engine
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/noahklein/chess/log"
 )
@@ -26,7 +27,7 @@ func (nc *NodeCount) Reset() {
 
 // TODO: Implement.
 func (e *Engine) SetOption(option string, value string) error {
-	switch option {
+	switch strings.ToLower(option) {
 	case "nullmove":
 		e.disableNullMove = false
 		if value == "false" {

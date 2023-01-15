@@ -23,9 +23,10 @@ import (
 
 var (
 	maxDepth  = flag.Int("depth", 3, "Max depth to search")
-	thinkTime = flag.Duration("think", 1*time.Second, "How long to think each move")
+	thinkTime = flag.Duration("think", 30*time.Second, "How long to think each move")
 	ttd       = flag.Int("ttd", 0, "Time-till-depth; report how long it takes to reach a given depth in non-mate puzzles")
 	profile   = flag.Bool("profile", false, "Enables pprof")
+	v         = flag.Int("v", -1, "verbose")
 )
 
 func init() {
@@ -53,7 +54,7 @@ func main() {
 	tbl := table.New("Depth", "Score", "Moves", "Time", "Hashfull", "KNodes", "NPS")
 
 	// Play a whole game at a certain depth and log the results in a table.
-	for depth := 1; depth <= *maxDepth; depth++ {
+	for depth := *maxDepth; depth <= *maxDepth; depth++ {
 		start := time.Now()
 		results, moveCount := playGame(dragon.Startpos, depth, *thinkTime)
 
@@ -79,7 +80,8 @@ func playGame(fen string, depth int, thinkTime time.Duration) (uci.SearchResults
 	e.NewGame()
 	e.Position(fen, nil)
 	e.Debug(false)
-	e.Level = log.NONE
+	e.SetOption("hash", "128")
+	e.Level = log.Level(*v)
 
 	fmt.Print("Depth: ", depth, "")
 
@@ -138,7 +140,7 @@ func timeTillDepth(fen string, depth int) time.Duration {
 	var e engine.Engine
 	e.NewGame()
 	e.Position(fen, nil)
-	e.Level = log.WARN
+	e.Level = log.Level(*v)
 
 	start := time.Now()
 

@@ -134,7 +134,7 @@ func TestOccupied(t *testing.T) {
 }
 
 func TestMvvLva(t *testing.T) {
-	fen := "7k/3q4/4P3/8/B7/8/8/K2R4 w - - 0 1"
+	fen := "7k/3q1b2/4P3/1B6/p7/8/8/K2R4 w - - 0 1"
 	var e Engine
 	e.NewGame()
 	e.Position(fen, nil)
@@ -142,8 +142,10 @@ func TestMvvLva(t *testing.T) {
 	want := []string{
 		"d1h1", // Rook check
 		"e6d7", // PxQ
-		"a4d7", // BxQ
+		"b5d7", // BxQ
 		"d1d7", // RxQ
+		"e6f7", // PxB
+		"b5a4", // BxP
 	}
 
 	moves, _ := e.board.GenerateLegalMoves()
@@ -160,7 +162,9 @@ func TestMvvLva(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(got, want) {
-		t.Errorf("Wrong sort order: got %v, want %v", got, want)
+		t.Errorf(`Wrong sort order:
+got  %v
+want %v`, got, want)
 	}
 }
 
