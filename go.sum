@@ -6,6 +6,8 @@ github.com/mattn/go-runewidth v0.0.9 h1:Lm995f3rfxdpd6TSmuVCHVb/QhupuXlYr8sCI/Qd
 github.com/mattn/go-runewidth v0.0.9/go.mod h1:H031xJmbD/WCDINGzjvQ9THkh0rPKHF+m2gUSrubnMI=
 github.com/noahklein/dragon v1.2.1 h1:wX1oTtkKaI9Y5h3XC4UNKXt2GtF92z22iOwePg/K0hc=
 github.com/noahklein/dragon v1.2.1/go.mod h1:zQZ/MwCBAWNHxk8c+O+UBBdL6sDsoNFBVGiOmjn/icY=
+github.com/noahklein/dragon v1.2.2 h1:+gAHBVBSYx0IIEbrDx/YY9afLHPmYiBnl4caEnQzRss=
+github.com/noahklein/dragon v1.2.2/go.mod h1:zQZ/MwCBAWNHxk8c+O+UBBdL6sDsoNFBVGiOmjn/icY=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/rodaine/table v1.1.0 h1:/fUlCSdjamMY8VifdQRIu3VWZXYLY7QHFkVorS8NTr4=
