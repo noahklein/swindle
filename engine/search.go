@@ -32,6 +32,7 @@ func (e *Engine) IterDeep(ctx context.Context, params uci.SearchParams) uci.Sear
 		panic("IterDeep called with no moves")
 	}
 
+	var nodes int
 	start := time.Now()
 	// Default best move is first move in case of timeout before first iteration.
 	bestResult := uci.SearchResults{Move: moves[0].String()}
@@ -39,6 +40,13 @@ func (e *Engine) IterDeep(ctx context.Context, params uci.SearchParams) uci.Sear
 		e.Warn("depth=%v, ab: %v, %v", depth, alpha, beta)
 		result := e.Search(ctx, depth, alpha, beta)
 		score := result.Score
+		nodes += result.Nodes
+		result.Nodes = nodes
+
+		if ctx.Err() != nil {
+			e.Warn("timeout")
+			return bestResult
+		}
 
 		// Eval outside of aspiration window, re-search at same depth with wider window.
 		if score <= alpha {
@@ -64,9 +72,6 @@ func (e *Engine) IterDeep(ctx context.Context, params uci.SearchParams) uci.Sear
 		bestResult = result
 	}
 
-	if ctx.Err() != nil {
-		e.Warn("timeout")
-	}
 	return bestResult
 }
 
@@ -194,8 +199,19 @@ func (e *Engine) AlphaBeta(ctx context.Context, alpha, beta int16, depth int) in
 			return beta
 		}
 	}
+	// Futility pruning, if the current eval is hopelessly lower than alpha and
+	// we're close to the horizon, skip to quiescence search.
+	if !pvNode && !inCheck && depth < 3 {
+		eval := Eval(e.board)
+		if depth == 1 && eval+knightVal < alpha {
+			return e.Quiesce(alpha, beta)
+		}
+		if depth == 2 && eval+rookVal < alpha {
+			return e.Quiesce(alpha, beta)
+		}
+	}
 
-	if len(moves) == 1 {
+	if len(moves) == 1 || inCheck {
 		// Only one reply, this ply is free. Extend search.
 		// TODO: constrain this.
 		depth++

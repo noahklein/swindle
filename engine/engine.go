@@ -43,7 +43,7 @@ func (e *Engine) About() (string, string, string) {
 
 func (e *Engine) NewGame() {
 	if e.hashSizeMB == 0 {
-		e.hashSizeMB = 128
+		e.hashSizeMB = 64
 	}
 
 	board := dragon.ParseFen(dragon.Startpos)
@@ -78,11 +78,12 @@ func (e *Engine) Position(fen string, moves []string) {
 	board := dragon.ParseFen(fen)
 	e.board = &board
 	e.ply = int16(e.board.Fullmoveno * 2)
-	e.history.Push(board.Hash())
+	e.history = &History{
+		positions: []uint64{board.Hash()},
+	}
 	e.squares = NewSquares(&board)
 
 	e.transpositions.hits = 0
-	e.transpositions.age++
 
 	for _, move := range moves {
 		m, err := dragon.ParseMove(move)

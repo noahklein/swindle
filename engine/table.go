@@ -27,7 +27,6 @@ type Entry struct {
 	flag  NodeType
 	value int16
 	best  dragon.Move
-	age   uint8
 }
 
 // Transpositions is a transposition table (TT); used to memoize searched positions.
@@ -38,7 +37,6 @@ type Transpositions struct {
 	size       uint64
 	full       uint64
 	hits       int
-	age        uint8
 }
 
 func NewTranspositionTable(size uint64) *Transpositions {
@@ -74,7 +72,7 @@ func (tt *Transpositions) Add(ply int16, e Entry) {
 	isEmpty := existing.flag == NodeUnknown
 
 	// Don't replace good entries.
-	if !isEmpty && (e.depth < existing.depth || existing.age < e.age) {
+	if !isEmpty && (e.depth < existing.depth) {
 		return
 	}
 

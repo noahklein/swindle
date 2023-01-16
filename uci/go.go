@@ -63,10 +63,7 @@ func (sr SearchResults) Print(start time.Time) string {
 func search(engine Engine, args []string) {
 	params := parseParams(args)
 	go func() {
-		start := time.Now()
 		result := engine.Go(params)
-
-		fmt.Println(result.Print(start))
 		fmt.Printf("bestmove %v\n", result.Move)
 	}()
 }

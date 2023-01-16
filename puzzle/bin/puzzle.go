@@ -41,6 +41,7 @@ func main() {
 	var ids []string
 	if len(*id) > 0 {
 		ids = strings.Split(*id, ",")
+		*limit = len(ids)
 	}
 	var puzzles = puzzledb.Query(*limit, func(p puzzledb.Puzzle) bool {
 		if len(ids) > 0 && !contains(ids, p.ID) {
@@ -72,6 +73,7 @@ func main() {
 		e.NewGame()
 		e.Position(p.Fen, nil)
 		e.Level = log.Level(*verbose)
+		e.SetOption("Hash", "256")
 
 		var failed bool
 		var movesCompleted string
