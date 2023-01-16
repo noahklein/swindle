@@ -19,6 +19,7 @@ import (
 
 var (
 	tag    = flag.String("tag", "", "tag filter")
+	ntag   = flag.String("ntag", "", "negative tag filter")
 	id     = flag.String("id", "", "comma-seperated list of ids")
 	limit  = flag.Int("limit", 10, "limit the number of puzzles; 0 for all (not recommended)")
 	depth  = flag.Int("depth", 30, "depth to search puzzles at")
@@ -45,6 +46,9 @@ func main() {
 	}
 	var puzzles = puzzledb.Query(*limit, func(p puzzledb.Puzzle) bool {
 		if len(ids) > 0 && !contains(ids, p.ID) {
+			return false
+		}
+		if *ntag != "" && contains(p.Themes, *ntag) {
 			return false
 		}
 		if *tag != "" && !contains(p.Themes, *tag) {
