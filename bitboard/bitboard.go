@@ -8,9 +8,9 @@ import (
 	"github.com/noahklein/dragon"
 )
 
-func Flip(sq int) int { return sq ^ 56 }
-func File(sq int) int { return sq & 7 }
-func Rank(sq int) int { return sq >> 3 }
+func Flip(sq uint8) uint8 { return sq ^ 56 }
+func File(sq uint8) uint8 { return sq & 7 }
+func Rank(sq uint8) uint8 { return sq >> 3 }
 
 func RankFileToSquare(r, f int) int { return 8*r + f }
 

@@ -1,5 +1,7 @@
 package bitboard
 
+import "fmt"
+
 const (
 	FileAMask uint64 = 0x0101010101010101 << iota
 	FileBMask
@@ -23,11 +25,11 @@ const (
 )
 
 var (
-	ranks = [64]uint64{
+	files = [8]uint64{
 		FileAMask, FileBMask, FileCMask, FileDMask,
 		FileEMask, FileFMask, FileGMask, FileHMask,
 	}
-	files = [64]uint64{
+	ranks = [8]uint64{
 		Rank1Mask, Rank2Mask, Rank3Mask, Rank4Mask,
 		Rank5Mask, Rank6Mask, Rank7Mask, Rank8Mask,
 	}
@@ -38,27 +40,35 @@ var (
 	RankMask [64]uint64
 
 	AdjacentMask [64]uint64
-	PassedMask   [64]uint64
+	// [White, Black]
+	PassedMask [2][64]uint64
 )
 
 func init() {
-	for sq := 0; sq < 64; sq++ {
+	for sq := uint8(0); sq < 64; sq++ {
 		rank, file := Rank(sq), File(sq)
-		FileMask[sq] = ranks[file]
-		RankMask[sq] = files[rank]
+		FileMask[sq] = files[file]
+		RankMask[sq] = ranks[rank]
 
-		AdjacentMask[sq] = Left(ranks[file]) | Right(ranks[file])
+		AdjacentMask[sq] = Left(files[file]) | Right(files[file])
 
-		up := UpFill(1 << sq)
-		PassedMask[sq] = Left(up) | up | Right(up)
+		up := UpFill(1<<sq) & ^ranks[rank]
+		PassedMask[0][sq] = Left(up) | up | Right(up)
+
+		down := DownFill(1<<sq) & ^ranks[rank]
+		PassedMask[1][sq] = Left(down) | down | Right(down)
 	}
+
+	// diagnose(42)
 }
 
 // For debugging.
-// func diagnose(sq int) {
-// 	fmt.Println("File", String(FileMask[sq]))
-// 	fmt.Println("Rank", String(RankMask[sq]))
+func diagnose(sq int) {
+	fmt.Println("File", String(FileMask[sq]))
+	fmt.Println("Rank", String(RankMask[sq]))
+	fmt.Println()
 
-// 	fmt.Println("Passed", String(PassedMask[sq]))
-// 	fmt.Println("Adjacent", String(AdjacentMask[sq]))
-// }
+	fmt.Println("Passed", String(PassedMask[0][sq]))
+	fmt.Println("Passed", String(PassedMask[1][sq]))
+	fmt.Println("Adjacent", String(AdjacentMask[sq]))
+}
