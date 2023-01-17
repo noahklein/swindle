@@ -5,6 +5,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
+	"os/signal"
 	"sort"
 	"strings"
 	"time"
@@ -73,11 +75,29 @@ func main() {
 
 	var e engine.Engine
 
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		for range c {
+			fmt.Println()
+			fmt.Println("========  Terminated  ========")
+			fmt.Printf("Answered %v/%v puzzles correctly\n", correct, len(puzzles))
+			fmt.Println("Elapsed:", time.Since(start))
+			fmt.Println("Rating:", rating)
+
+			if len(failedIDs) != 0 {
+				fmt.Println("Failed:", strings.Join(failedIDs, ","))
+			}
+
+			os.Exit(0)
+		}
+	}()
+
 	for pNum, p := range puzzles {
 		e.NewGame()
 		e.Position(p.Fen, nil)
 		e.Level = log.Level(*verbose)
-		e.SetOption("Hash", "256")
+		e.SetOption("Hash", "128")
 
 		var failed bool
 		var movesCompleted string
