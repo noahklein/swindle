@@ -81,6 +81,7 @@ func playGame(fen string, depth int, thinkTime time.Duration) (uci.SearchResults
 	e.Position(fen, nil)
 	e.Debug(false)
 	e.SetOption("hash", "128")
+	// e.SetOption("Nullmove", "false")
 	e.Level = log.Level(*v)
 
 	fmt.Print("Depth: ", depth, "")

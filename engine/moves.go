@@ -5,10 +5,21 @@ import (
 )
 
 const (
-	killerScore = 5
+	killerScore = 16
 )
 
-var promotionScore = [7]int16{0, 0, 16, 17, 36, 49, 0}
+var (
+	promotionScore = [7]int16{0, 0, 16, 17, 36, 49, 0}
+	mvvLvaTable    = [7][7]int16{
+		{0, 0, 0, 0, 0, 0, 0},       // victim 0, Not a capture.
+		{0, 15, 14, 13, 12, 11, 10}, // victim P, attacker 0, P, N, B, R, Q, K
+		{0, 25, 24, 23, 22, 21, 20}, // victim N, attacker 0, P, N, B, R, Q, K
+		{0, 35, 34, 33, 32, 31, 30}, // victim B, attacker 0, P, N, B, R, Q, K
+		{0, 45, 44, 43, 42, 41, 40}, // victim R, attacker 0, P, N, B, R, Q, K
+		{0, 55, 54, 53, 52, 51, 50}, // victim Q, attacker 0, P, N, B, R, Q, K
+		{0, 0, 0, 0, 0, 0, 0},       // victim K, King can't be captured.
+	}
+)
 
 type moveScore struct {
 	move  dragon.Move
@@ -58,14 +69,4 @@ func (ms *MoveSort) Next(start int) dragon.Move {
 	}
 
 	return ms.moveScores[start].move
-}
-
-var mvvLvaTable = [7][7]int16{
-	{0, 0, 0, 0, 0, 0, 0},       // victim 0, Not a capture.
-	{0, 15, 14, 13, 12, 11, 10}, // victim P, attacker 0, P, N, B, R, Q, K
-	{0, 25, 24, 23, 22, 21, 20}, // victim N, attacker 0, P, N, B, R, Q, K
-	{0, 35, 34, 33, 32, 31, 30}, // victim B, attacker 0, P, N, B, R, Q, K
-	{0, 45, 44, 43, 42, 41, 40}, // victim R, attacker 0, P, N, B, R, Q, K
-	{0, 55, 54, 53, 52, 51, 50}, // victim Q, attacker 0, P, N, B, R, Q, K
-	{0, 0, 0, 0, 0, 0, 0},       // victim K, King can't be captured.
 }

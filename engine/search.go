@@ -184,6 +184,12 @@ func (e *Engine) AlphaBeta(ctx context.Context, alpha, beta int16, depth int) in
 		return terminalScore
 	}
 
+	if len(moves) == 1 || inCheck {
+		// Only one reply, this ply is free. Extend search.
+		// TODO: constrain this.
+		depth++
+	}
+
 	// Check transposition table.
 	if val, nt := e.transpositions.GetEval(e.board.Hash(), depth, alpha, beta, e.ply); nt != NodeUnknown {
 		return val
@@ -210,12 +216,6 @@ func (e *Engine) AlphaBeta(ctx context.Context, alpha, beta int16, depth int) in
 		if depth == 2 && eval+rookVal < alpha {
 			return e.Quiesce(alpha, beta)
 		}
-	}
-
-	if len(moves) == 1 || inCheck {
-		// Only one reply, this ply is free. Extend search.
-		// TODO: constrain this.
-		depth++
 	}
 
 	// e.sortMoves(moves)
@@ -354,7 +354,7 @@ func (e *Engine) Quiesce(alpha, beta int16) int16 {
 func (e *Engine) searchNullMove(ctx context.Context, beta int16, depth int) int16 {
 	r := 2
 	if depth >= 6 {
-		r = 3
+		r = 4 + depth/6
 	}
 
 	undoNull := e.board.NullMove()
