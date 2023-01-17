@@ -3,6 +3,7 @@ package engine
 import (
 	"math/bits"
 
+	"github.com/noahklein/chess/bitboard"
 	"github.com/noahklein/dragon"
 )
 
@@ -16,10 +17,11 @@ const (
 )
 
 var (
-	doubledPawn   = [2]int16{-5, -15}
-	isolatedPawn  = [2]int16{-10, -15}
-	unopposedPawn = [2]int16{5, 15}
-	passedPawn    = [2]int16{15, 30}
+	doubledPawn  = [2]int16{-10, -10}
+	isolatedPawn = [2]int16{-10, -10}
+
+	// Passed pawn bonuses for each rank.
+	passedPawn = [8]int16{0, 10, 30, 50, 75, 100, 150, 200}
 	// Bonus for rooks on open and semi-open files.
 	rookOpen     = [2]int16{10, 20}
 	rookSemiOpen = [2]int16{5, 7}
@@ -56,32 +58,30 @@ func Eval(board *dragon.Board) int16 {
 
 		switch piece {
 		case dragon.Pawn:
-			fileMask := dragon.FileMasks[dragon.File(square)]
+			fileMask := bitboard.FileMask[square]
 			// Doubled pawn penalty.
 			ourPawnsOnFile := pieces[color].Pawns & fileMask
 			if ourPawnsOnFile > 1 {
 				mgScore[color] += doubledPawn[0]
 				egScore[color] += doubledPawn[1]
 			}
-			// Unopposed pawn bonus.
-			theirPawnsOnFile := pieces[other(color)].Pawns & fileMask
-			if theirPawnsOnFile == 0 {
-				mgScore[color] += unopposedPawn[0]
-				egScore[color] += unopposedPawn[1]
-			}
 			// Passed pawn bonus.
-			adjacentFiles := (left(fileMask) | right(fileMask))
-			if adjacentFiles&pieces[other(color)].Pawns == 0 {
-				mgScore[color] += passedPawn[0]
-				egScore[color] += passedPawn[1]
+			if bitboard.PassedMask[color][square]&pieces[other(color)].Pawns == 0 {
+				rank := bitboard.Rank(square)
+				if color == 1 {
+					rank = bitboard.Rank(bitboard.Flip(square))
+				}
+				mgScore[color] += passedPawn[rank]
+				egScore[color] += passedPawn[rank]
 			}
 			// Isolated pawn penalty.
-			if adjacentFiles&pieces[color].Pawns == 0 {
+			if bitboard.AdjacentMask[square]&pieces[color].Pawns == 0 {
 				mgScore[color] += isolatedPawn[0]
 				egScore[color] += isolatedPawn[1]
 			}
+
 		case dragon.Rook:
-			pawnsOnFile := (board.White.Pawns | board.Black.Pawns) & dragon.FileMasks[dragon.File(square)]
+			pawnsOnFile := (board.White.Pawns | board.Black.Pawns) & bitboard.FileMask[square]
 			if pawnsOnFile == 0 {
 				mgScore[color] += rookOpen[0]
 				egScore[color] += rookOpen[1]
@@ -91,7 +91,7 @@ func Eval(board *dragon.Board) int16 {
 			}
 		case dragon.King:
 			// King-safety.
-			pawnsOnFile := (board.White.Pawns | board.Black.Pawns) & dragon.FileMasks[dragon.File(square)]
+			pawnsOnFile := (board.White.Pawns | board.Black.Pawns) & bitboard.FileMask[square]
 			if pawnsOnFile == 0 {
 				mgScore[color] -= rookOpen[0]
 				egScore[color] -= rookOpen[1]
