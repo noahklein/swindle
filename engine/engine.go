@@ -122,6 +122,9 @@ func (e *Engine) Go(params uci.SearchParams) uci.SearchResults {
 		return uci.SearchResults{}
 	}
 
+	e.UCI("info string null move disabled: %v", e.disableNullMove)
+	e.UCI("info string Hash: %v, %v", e.hashSizeMB, len(e.transpositions.table))
+
 	return e.IterDeep(ctx, params)
 }
 

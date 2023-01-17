@@ -53,7 +53,7 @@ func (e *Engine) SetOption(option string, value string) error {
 func (e *Engine) PrintOptions() {
 	e.UCI("option name Nullmove type check default true")
 	e.UCI("option name Clear Hash type button")
-	e.UCI("option name Hash type spin default 16 min 1 max 1024")
+	e.UCI("option name Hash type spin default 128 min 1 max 1024")
 }
 
 // Debug enables logging and metric reporting.

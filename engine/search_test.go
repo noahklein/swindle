@@ -3,10 +3,10 @@ package engine
 import (
 	"context"
 	"math/rand"
-	"reflect"
 	"testing"
 	"time"
 
+	"github.com/noahklein/chess/log"
 	puzzledb "github.com/noahklein/chess/puzzle"
 	"github.com/noahklein/chess/uci"
 	"github.com/noahklein/dragon"
@@ -119,40 +119,15 @@ func TestForcedDraw(t *testing.T) {
 
 }
 
-func TestOccupied(t *testing.T) {
-	board := dragon.ParseFen(dragon.Startpos)
-	tests := []struct {
-		square uint8
-		want   bool
-	}{
-		{0, true},
-		{1, true},
-		{14, true},
-		{15, true},
-		{16, false},
-		{17, false},
-		{32, false},
-		{33, false},
-		{58, true},
-		{63, true},
-	}
-	for _, tt := range tests {
-		if got := Occupied(&board, tt.square); got != tt.want {
-			t.Errorf("Occupied(%v) = %v, want %v", tt.square, got, tt.want)
-			t.Logf("%64b", uint64(1)<<tt.square)
-			t.Logf("%b", board.White.All|board.Black.All)
-		}
-	}
-}
-
 func TestMvvLva(t *testing.T) {
 	fen := "7k/3q1b2/4P3/1B6/p7/8/8/K2R4 w - - 0 1"
 	var e Engine
 	e.NewGame()
 	e.Position(fen, nil)
+	t.Log(e.board.String())
 
 	want := []string{
-		"d1h1", // Rook check
+		// "d1h1", // Rook check
 		"e6d7", // PxQ
 		"b5d7", // BxQ
 		"d1d7", // RxQ
@@ -166,17 +141,13 @@ func TestMvvLva(t *testing.T) {
 	rand.Shuffle(len(moves), func(i, j int) {
 		moves[i], moves[j] = moves[j], moves[i]
 	})
-	moves = e.sortMoves(moves)[:len(want)]
 
-	var got []string
-	for _, m := range moves {
-		got = append(got, m.String())
-	}
-
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf(`Wrong sort order:
-got  %v
-want %v`, got, want)
+	moveSorter := e.newMoveSorter(moves)
+	for i, move := range want {
+		got := moveSorter.Next(i)
+		if got.String() != move {
+			t.Errorf("Wrong move: got %v, want %v", got.String(), move)
+		}
 	}
 }
 
@@ -231,6 +202,7 @@ func benchmarkSearch(depth int, b *testing.B) {
 	e.NewGame()
 	e.Position(dragon.Startpos, nil)
 	e.Debug(false)
+	e.Level = log.NONE
 
 	ctx := context.Background()
 

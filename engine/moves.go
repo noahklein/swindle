@@ -1,45 +1,63 @@
 package engine
 
 import (
-	"sort"
-
 	"github.com/noahklein/dragon"
 )
 
-// Sort moves using cheap heuristics, e.g. search captures and promotions before other moves.
-// Searching better moves first helps us prune nodes with beta cutoffs.
-func (e *Engine) sortMoves(moves []dragon.Move) []dragon.Move {
-	var (
-		out = make([]dragon.Move, 0, len(moves))
+const (
+	killerScore = 5
+)
 
-		killers, checks, captures, others []dragon.Move
-	)
+var promotionScore = [7]int16{0, 0, 16, 17, 36, 49, 0}
+
+type moveScore struct {
+	move  dragon.Move
+	score int16
+}
+
+// MoveSort sorts moves using cheap heuristics, e.g. search captures and promotions
+//  before other moves. Searching better moves first helps us prune nodes with beta cutoffs.
+type MoveSort struct {
+	moveScores []moveScore
+}
+
+// Score moves and store them. Call Next(i) from 0 to len(moves) to get the sorted list.
+func (e *Engine) newMoveSorter(moves []dragon.Move) *MoveSort {
+	ms := MoveSort{
+		moveScores: make([]moveScore, len(moves)),
+	}
 
 	pv, pvOk := e.PVMove()
-
 	kms := e.killer.Get(e.ply)
+	for i, move := range moves {
+		ms.moveScores[i].move = move
 
-	for _, move := range moves {
 		if pvOk && move == pv {
-			out = append(out, move)
-		} else if move == kms[0] || move == kms[1] { // Zero-value is a1a1, an impossible move.
-			e.nodeCount.legalKiller++
-			killers = append(killers, move)
-		} else if move.Promote() == dragon.Queen || IsCheck(e.board, move) {
-			checks = append(checks, move)
-		} else if move.Promote() != 0 || Occupied(e.board, move.To()) {
-			captures = append(captures, move)
-		} else {
-			others = append(others, move)
+			ms.moveScores[i].score = 10000
+			continue
+		}
+
+		attacker, _ := e.squares.PieceType(move.From())
+		victim, _ := e.squares.PieceType(move.To())
+		ms.moveScores[i].score = mvvLvaTable[victim][attacker]
+		ms.moveScores[i].score += promotionScore[move.Promote()]
+
+		if move == kms[0] || move == kms[1] {
+			ms.moveScores[i].score += killerScore
+		}
+	}
+	return &ms
+}
+
+// Next gets the next best move.
+func (ms *MoveSort) Next(start int) dragon.Move {
+	for i := start; i < len(ms.moveScores); i++ {
+		if ms.moveScores[i].score > ms.moveScores[start].score {
+			ms.moveScores[start], ms.moveScores[i] = ms.moveScores[i], ms.moveScores[start]
 		}
 	}
 
-	e.mvvLva(captures)
-
-	out = append(out, killers...)
-	out = append(out, checks...)
-	out = append(out, captures...)
-	return append(out, others...)
+	return ms.moveScores[start].move
 }
 
 var mvvLvaTable = [7][7]int16{
@@ -50,41 +68,4 @@ var mvvLvaTable = [7][7]int16{
 	{0, 45, 44, 43, 42, 41, 40}, // victim R, attacker 0, P, N, B, R, Q, K
 	{0, 55, 54, 53, 52, 51, 50}, // victim Q, attacker 0, P, N, B, R, Q, K
 	{0, 0, 0, 0, 0, 0, 0},       // victim K, King can't be captured.
-}
-
-// Most-Valuable Victim/Least-Valuable attacker. Search PxQ, before QxP.
-func (e *Engine) mvvLva(captures []dragon.Move) {
-	sort.Slice(captures, func(i, j int) bool {
-		ai, _ := e.squares.PieceType(captures[i].From())
-		vi, _ := e.squares.PieceType(captures[i].To())
-
-		aj, _ := e.squares.PieceType(captures[j].From())
-		vj, _ := e.squares.PieceType(captures[j].To())
-
-		return mvvLvaTable[vi][ai] > mvvLvaTable[vj][aj]
-	})
-}
-
-// Occupied checks if a square is occupied.
-func Occupied(board *dragon.Board, square uint8) bool {
-	return (board.Black.All|board.White.All)&uint64(1<<square) >= 1
-}
-
-func IsCheck(board *dragon.Board, move dragon.Move) bool {
-	unapply := board.Apply(move)
-	defer unapply()
-	return board.OurKingInCheck()
-}
-
-// Check for search extensions. Return the number of plies to extend search by.
-func (e *Engine) extensions(move dragon.Move, depth int) int {
-	if move.Promote() > 0 {
-		return 1
-	}
-	return 0
-}
-
-// Check for search reductions. Return the number of plies to reduce search by.
-func (e *Engine) reductions(move dragon.Move, depth int) int {
-	return 0
 }

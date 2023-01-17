@@ -45,6 +45,7 @@ func (e *Engine) IterDeep(ctx context.Context, params uci.SearchParams) uci.Sear
 
 		if ctx.Err() != nil {
 			e.Warn("timeout")
+			bestResult.Nodes = nodes
 			return bestResult
 		}
 
@@ -217,12 +218,14 @@ func (e *Engine) AlphaBeta(ctx context.Context, alpha, beta int16, depth int) in
 		depth++
 	}
 
+	// e.sortMoves(moves)
+	moveSorter := e.newMoveSorter(moves)
+
 	// Assume this is an alpha node.
 	nodeType := NodeAlpha
-
-	var foundPV bool
 	var bestMove dragon.Move
-	for mNum, move := range e.sortMoves(moves) {
+	for mNum := range moves {
+		move := moveSorter.Next(mNum)
 		unmove := e.Move(move)
 
 		// Only search the first 6 sorted moves to full depth.
@@ -231,12 +234,10 @@ func (e *Engine) AlphaBeta(ctx context.Context, alpha, beta int16, depth int) in
 			lateMoveReduction = depth / 3
 		}
 		// Extend or reduce search depth for this move.
-		moveDepth := depth +
-			e.extensions(move, depth) - e.reductions(move, depth) -
-			lateMoveReduction
+		moveDepth := depth - lateMoveReduction
 
 		var score int16
-		if foundPV {
+		if nodeType == NodeExact {
 			// Zero-window search.
 			score = -e.AlphaBeta(ctx, -alpha-1, -alpha, moveDepth)
 			// If we failed, search again with normal window.
@@ -253,7 +254,7 @@ func (e *Engine) AlphaBeta(ctx context.Context, alpha, beta int16, depth int) in
 			e.killer.Add(e.ply, move)
 			e.transpositions.Add(e.ply, Entry{
 				key:   e.board.Hash(),
-				depth: depth,
+				depth: moveDepth,
 				flag:  NodeBeta,
 				value: beta,
 				best:  move,
@@ -263,7 +264,6 @@ func (e *Engine) AlphaBeta(ctx context.Context, alpha, beta int16, depth int) in
 		if score > alpha {
 			alpha = score
 			bestMove = move
-			foundPV = true
 			nodeType = NodeExact
 		}
 	}
@@ -331,13 +331,15 @@ func (e *Engine) Quiesce(alpha, beta int16) int16 {
 		loudMoves = append(loudMoves, move)
 	}
 
-	for _, move := range e.sortMoves(loudMoves) {
+	moveSorter := e.newMoveSorter(loudMoves)
+	for mNum := range loudMoves {
+		move := moveSorter.Next(mNum)
 		unmove := e.Move(move)
 		score := -e.Quiesce(-beta, -alpha)
 		unmove()
 
 		if score >= beta {
-			e.killer.Add(e.ply, move)
+			// e.killer.Add(e.ply, move)
 			return beta
 		}
 
