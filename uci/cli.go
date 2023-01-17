@@ -91,13 +91,16 @@ func handle(engine Engine, input string) error {
 		engine.IsReady()
 		fmt.Println("readyok")
 	case "position":
-		fen := args[0]
+		moveSplit := strings.Split(strings.Join(args, " "), " moves ")
+
+		fen := moveSplit[0]
 		if fen == "startpos" {
 			fen = startingFen
 		}
+
 		var moves []string
-		if len(args) >= 2 {
-			moves = args[2:]
+		if len(moveSplit) > 1 {
+			moves = strings.Split(moveSplit[1], " ")
 		}
 		engine.Position(fen, moves)
 	case "go":
