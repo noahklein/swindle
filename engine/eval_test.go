@@ -33,16 +33,21 @@ func TestEval(t *testing.T) {
 			want:  302,
 		},
 		{
+			name:  "2 passed pawns on 5th rank",
+			board: dragon.ParseFen("8/8/8/PP6/8/8/8/8 w - - 0 1"),
+			want:  379,
+		},
+		{
 			name:  "2 black passed pawns on 5th rank",
 			board: dragon.ParseFen("8/8/8/pp6/8/8/8/8 b - - 0 1"),
-			want:  251,
+			want:  301,
 		},
 		{
 			name:  "2 black passed pawns on 4th rank",
 			board: dragon.ParseFen("8/8/8/8/pp6/8/8/8 w - - 0 1"),
-			want:  329,
+			want:  -379,
 		},
-		// Messy positions:
+		// Messy positions
 		{
 			name:  "down a knight and a pawn",
 			board: dragon.ParseFen("r1bqkbnr/ppp1pppp/2n5/8/2BP4/5p2/PPP2PPP/RNBQK2R w KQkq - 0 1"),
@@ -55,7 +60,7 @@ func TestEval(t *testing.T) {
 		},
 	}
 
-	const threshold = 20 // Got should be within threshold of want.
+	const threshold = 10 // Got should be within threshold of want.
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := Eval(&tt.board); got < tt.want-threshold || got > tt.want+threshold {

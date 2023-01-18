@@ -69,7 +69,7 @@ func Eval(board *dragon.Board) int16 {
 			if bitboard.PassedMask[color][square]&pieces[other(color)].Pawns == 0 {
 				rank := bitboard.Rank(square)
 				if color == 1 {
-					rank = bitboard.Rank(bitboard.Flip(square))
+					rank = 8 - rank
 				}
 				mgScore[color] += passedPawn[rank]
 				egScore[color] += passedPawn[rank]

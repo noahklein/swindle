@@ -170,6 +170,10 @@ func (e *Engine) thinkTime(params uci.SearchParams) time.Duration {
 		return defualtThinkTime
 	}
 
+	if params.MovesToGo == 0 {
+		params.MovesToGo = 30
+	}
+
 	mtg := time.Duration(params.MovesToGo) + 2
 	return (t + inc*mtg) / mtg
 }
