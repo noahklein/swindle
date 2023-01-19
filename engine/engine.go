@@ -30,6 +30,7 @@ type Engine struct {
 	squares        *Squares
 
 	hashSizeMB      int // Space in MB allocated for transposition table.
+	threads         int
 	disableNullMove bool
 
 	nodeCount NodeCount
@@ -71,6 +72,7 @@ func (e *Engine) Copy() *Engine {
 		ply:            e.ply,
 		cancel:         e.cancel,
 		debug:          e.debug,
+		Logger:         e.Logger,
 	}
 }
 

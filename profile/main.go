@@ -26,6 +26,7 @@ var (
 	thinkTime = flag.Duration("think", 30*time.Second, "How long to think each move")
 	ttd       = flag.Int("ttd", 0, "Time-till-depth; report how long it takes to reach a given depth in non-mate puzzles")
 	profile   = flag.Bool("profile", false, "Enables pprof")
+	threads   = flag.Int("threads", 1, "Number of threads to search with")
 	v         = flag.Int("v", -1, "verbose")
 )
 
@@ -81,6 +82,7 @@ func playGame(fen string, depth int, thinkTime time.Duration) (uci.SearchResults
 	e.Position(fen, nil)
 	e.Debug(false)
 	e.SetOption("hash", "128")
+	e.SetOption("Threads", fmt.Sprint(*threads))
 	// e.SetOption("Nullmove", "false")
 	e.Level = log.Level(*v)
 

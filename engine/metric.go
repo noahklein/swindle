@@ -41,7 +41,14 @@ func (e *Engine) SetOption(option string, value string) error {
 			return err
 		}
 		e.hashSizeMB = i
-		e.UCI("Hash size set to %v mb", e.hashSizeMB)
+		e.UCI("info string Hash size set to %v mb", e.hashSizeMB)
+	case "threads":
+		i, err := strconv.Atoi(value)
+		if err != nil {
+			return err
+		}
+		e.threads = i
+		e.UCI("info string Threads set set to %v", e.hashSizeMB)
 
 	default:
 		e.Warn("Unsupported option: %v", option)
@@ -54,6 +61,7 @@ func (e *Engine) PrintOptions() {
 	e.UCI("option name Nullmove type check default true")
 	e.UCI("option name Clear Hash type button")
 	e.UCI("option name Hash type spin default 128 min 1 max 1024")
+	e.UCI("option name Threads type spin default 2 min 1 max 12")
 }
 
 // Debug enables logging and metric reporting.

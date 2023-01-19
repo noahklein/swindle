@@ -61,6 +61,7 @@ func (e *Engine) IterDeep(ctx context.Context, params uci.SearchParams) uci.Sear
 		}
 
 		e.UCI(result.Print(start))
+
 		if result.Mate != NotMate {
 			e.Warn("Mate found, early return")
 			return result
@@ -80,68 +81,76 @@ func (e *Engine) IterDeep(ctx context.Context, params uci.SearchParams) uci.Sear
 func (e *Engine) Search(ctx context.Context, depth, alpha, beta int16) uci.SearchResults {
 	moves, _ := e.GenMoves()
 
-	var (
-		bestMu    sync.Mutex
-		bestScore = -infinity
-		bestMove  = moves[0]
-		// TODO: investigate mysterious node counts.
-		nodes, qNodes int
-		maxDepth      int16
-		results       uci.SearchResults
-	)
+	if e.threads == 0 || e.threads > len(moves) {
+		e.threads = len(moves)
+	}
+	e.threads = len(moves)
 
-	// Search each root-level move in parallel.
-	var wg sync.WaitGroup
+	moveCh := make(chan dragon.Move, len(moves))
 	for _, move := range moves {
-		// Capture variables for goroutine.
-		move, e := move, e.Copy()
+		moveCh <- move
+	}
+	close(moveCh)
 
+	resultCh := make(chan uci.SearchResults, len(moves))
+
+	var wg sync.WaitGroup
+	for t := 0; t < e.threads; t++ {
+		e := e.Copy()
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			e.nodeCount.Inc()
 
-			unmove := e.Move(move)
-			score := -e.AlphaBeta(ctx, -beta, -alpha, int(depth))
-			unmove()
+			for move := range moveCh {
+				e.nodeCount.Inc()
 
-			bestMu.Lock()
-			defer bestMu.Unlock()
-			if score >= bestScore {
-				bestScore = score
-				bestMove = move
+				// Search this move.
+				unmove := e.Move(move)
+				score := -e.AlphaBeta(ctx, -beta, -alpha, int(depth))
+				unmove()
 
 				var pv []string
-				for _, m := range e.PrincipalVariation(bestMove, 10) {
+				for _, m := range e.PrincipalVariation(move, 10) {
 					pv = append(pv, m.String())
 				}
 
-				nodes += e.nodeCount.nodes
-				qNodes += e.nodeCount.qNodes
-				maxDepth = max(maxDepth, e.nodeCount.maxPly-e.ply)
-
-				results = uci.SearchResults{
-					Move:           bestMove.String(),
-					Score:          bestScore,
-					Mate:           mateScore(bestScore, e.ply),
-					Nodes:          int(nodes),
-					Hashfull:       e.transpositions.PermillFull(),
+				resultCh <- uci.SearchResults{
+					Move:           move.String(),
+					Score:          score,
+					Mate:           mateScore(score, e.ply),
+					Nodes:          e.nodeCount.nodes,
 					PV:             pv,
-					Depth:          int(depth),
-					SelectiveDepth: int(maxDepth),
-					TableHits:      e.transpositions.hits,
+					SelectiveDepth: int(e.nodeCount.maxPly - e.ply),
 				}
 			}
 		}()
 	}
-	wg.Wait()
 
-	pctQNodes := 100 * float64(qNodes) / float64(nodes)
-	if pctQNodes > 65 {
-		e.Warn("Quiescent nodes: %v / %v; %.2f%%", qNodes, nodes, pctQNodes)
+	wg.Wait()
+	close(resultCh)
+
+	best := uci.SearchResults{
+		Score: -infinity, Mate: NotMate,
+		Move: moves[0].String(), // Init to first move in case of immediate cancellation.
+
+		Depth:     int(depth),
+		Hashfull:  e.transpositions.PermillFull(),
+		TableHits: e.transpositions.hits,
 	}
 
-	return results
+	for result := range resultCh {
+		best.Nodes += result.Nodes
+		best.SelectiveDepth = int(max(int16(best.SelectiveDepth), int16(result.SelectiveDepth)))
+
+		if result.Score >= best.Score {
+			best.Score = result.Score
+			best.Mate = result.Mate
+			best.Move = result.Move
+			best.PV = result.PV
+		}
+	}
+
+	return best
 }
 
 // AlphaBeta improves upon the minimax algorithm.

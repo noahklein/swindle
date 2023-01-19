@@ -47,6 +47,9 @@ func (e *Engine) newMoveSorter(moves []dragon.Move) *MoveSort {
 			ms.moveScores[i].score = 10000
 			continue
 		}
+		if isCheck(e.board, move) {
+			ms.moveScores[i].score = 2000
+		}
 
 		attacker, _ := e.squares.PieceType(move.From())
 		victim, _ := e.squares.PieceType(move.To())
@@ -69,4 +72,10 @@ func (ms *MoveSort) Next(start int) dragon.Move {
 	}
 
 	return ms.moveScores[start].move
+}
+
+func isCheck(board *dragon.Board, move dragon.Move) bool {
+	unapply := board.Apply(move)
+	defer unapply()
+	return board.OurKingInCheck()
 }
