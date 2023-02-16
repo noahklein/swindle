@@ -1,5 +1,6 @@
 swindle
-puzzle/lichess_db_puzzle.csv
 dist/
 
+puzzle/lichess_db_puzzle.csv
 scripts/competitors
+*.pgn
