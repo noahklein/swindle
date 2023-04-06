@@ -57,12 +57,12 @@ func main() {
 	// Play a whole game at a certain depth and log the results in a table.
 	for depth := *maxDepth; depth <= *maxDepth; depth++ {
 		start := time.Now()
-		results, moveCount := playGame(dragon.Startpos, depth, *thinkTime)
+		results, moves := playGame(dragon.Startpos, depth, *thinkTime)
 
 		nps := results.Nodes * int(time.Second) / int(time.Since(start))
 
 		tbl.AddRow(
-			depth, results.Score, moveCount,
+			depth, results.Score, len(moves),
 			fmtDuration(time.Since(start)),
 			results.Hashfull,
 			results.Nodes/1000, fmt.Sprintf("%vk/s", nps/1000),
@@ -76,7 +76,7 @@ func main() {
 	tbl.Print()
 }
 
-func playGame(fen string, depth int, thinkTime time.Duration) (uci.SearchResults, int) {
+func playGame(fen string, depth int, thinkTime time.Duration) (uci.SearchResults, []dragon.Move) {
 	e := &engine.Engine{}
 	e.NewGame()
 	e.Position(fen, nil)
@@ -86,12 +86,13 @@ func playGame(fen string, depth int, thinkTime time.Duration) (uci.SearchResults
 	// e.SetOption("Nullmove", "false")
 	e.Level = log.Level(*v)
 
-	fmt.Print("Depth: ", depth, "")
+	fmt.Printf("Depth %d: ", depth)
 
-	var moveCount int
-	var finalResults uci.SearchResults
+	var (
+		game         []dragon.Move
+		finalResults uci.SearchResults
+	)
 	for moves, _ := e.GenMoves(); len(moves) > 0; moves, _ = e.GenMoves() {
-		moveCount++
 		fmt.Print(".")
 
 		ctx, cancel := context.WithTimeout(context.Background(), thinkTime)
@@ -106,15 +107,16 @@ func playGame(fen string, depth int, thinkTime time.Duration) (uci.SearchResults
 		}
 		e.Move(move)
 
+		game = append(game, move)
 		results.Nodes += finalResults.Nodes
 		finalResults = results
 
-		if moveCount == 30 {
+		if len(game) > 30 {
 			break
 		}
 	}
 	fmt.Println()
-	return finalResults, moveCount
+	return finalResults, game
 }
 
 func puzzleDepth(depth int) {

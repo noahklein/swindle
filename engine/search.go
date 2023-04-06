@@ -247,10 +247,10 @@ func (e *Engine) AlphaBeta(ctx context.Context, alpha, beta int16, depth int) in
 
 		var score int16
 		if nodeType == NodeExact {
-			// Zero-window search.
+			// We've already found a candiate move, do a zero-window search around the candidate move score.
 			score = -e.AlphaBeta(ctx, -alpha-1, -alpha, moveDepth)
-			// If we failed, search again with normal window.
 			if score > alpha && score < beta {
+				// If we failed, search again with normal window.
 				score = -e.AlphaBeta(ctx, -beta, -alpha, moveDepth)
 			}
 		} else {
@@ -317,11 +317,16 @@ func (e *Engine) Quiesce(alpha, beta int16) int16 {
 
 	var loudMoves []dragon.Move
 	for _, move := range moves {
-		if score, ok := e.terminalMove(move); ok {
+		score, ok, inCheck := e.terminalMove(move)
+		if ok {
 			return score
 		}
+		if inCheck {
+			loudMoves = append(loudMoves, move)
+			continue
+		}
 
-		victim, _ := e.squares.PieceType(move.To())
+		victim, _ := dragon.GetPieceType(move.To(), e.board)
 		// Skip non-captures.
 		if victim == dragon.Nothing {
 			continue
@@ -331,7 +336,7 @@ func (e *Engine) Quiesce(alpha, beta int16) int16 {
 			continue
 		}
 
-		attacker, _ := e.squares.PieceType(move.From())
+		attacker, _ := dragon.GetPieceType(move.From(), e.board)
 		// Skip captures that lose material.
 		if badCapture(attacker, victim) {
 			continue
@@ -416,14 +421,16 @@ func (e *Engine) legal(move dragon.Move) bool {
 }
 
 // terminalMove checks if a move is terminal and gets the score at terminal nodes.
-func (e *Engine) terminalMove(move dragon.Move) (int16, bool) {
+// Note: this is expensive and redundant, consider modifying Board.Apply() to compute and
+// save a checkers bitboard.
+func (e *Engine) terminalMove(move dragon.Move) (int16, bool, bool) {
 	unmove := e.Move(move)
 	defer unmove()
 
 	moves, inCheck := e.GenMoves()
 
 	terminalScore, ok := e.terminal(len(moves), inCheck)
-	return -terminalScore, ok
+	return -terminalScore, ok, inCheck
 }
 
 func (e *Engine) terminal(numMoves int, inCheck bool) (int16, bool) {

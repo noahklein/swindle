@@ -27,7 +27,6 @@ type Engine struct {
 	transpositions *Transpositions
 	killer         *Killer
 	history        *History
-	squares        *Squares
 
 	hashSizeMB      int // Space in MB allocated for transposition table.
 	threads         int
@@ -53,7 +52,6 @@ func (e *Engine) NewGame() {
 	e.transpositions = NewTranspositionTable(uint64(e.hashSizeMB))
 	e.nodeCount = NodeCount{}
 	e.history = &History{}
-	e.squares = NewSquares(&board)
 	e.ply = 1
 	e.cancel = func() {}
 	e.debug = true
@@ -68,7 +66,6 @@ func (e *Engine) Copy() *Engine {
 		transpositions: e.transpositions,
 		board:          &board,
 		history:        e.history.Copy(),
-		squares:        NewSquares(&board),
 		ply:            e.ply,
 		cancel:         e.cancel,
 		debug:          e.debug,
@@ -83,7 +80,6 @@ func (e *Engine) Position(fen string, moves []string) {
 	e.history = &History{
 		positions: []uint64{board.Hash()},
 	}
-	e.squares = NewSquares(&board)
 
 	e.transpositions.hits = 0
 
@@ -133,14 +129,12 @@ func (e *Engine) Go(params uci.SearchParams) uci.SearchResults {
 // Make a move on the board. Returns an unmove callback.
 func (e *Engine) Move(m dragon.Move) func() {
 	unapply := e.board.Apply(m)
-	unmoveSquares := e.squares.Move(m)
 	e.history.Push(e.board.Hash())
 	e.ply++
 	e.nodeCount.Ply(e.ply)
 
 	return func() {
 		unapply()
-		unmoveSquares()
 		e.ply--
 		e.history.Pop()
 	}

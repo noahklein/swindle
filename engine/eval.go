@@ -25,6 +25,9 @@ var (
 	// Bonus for rooks on open and semi-open files.
 	rookOpen     = [2]int16{10, 20}
 	rookSemiOpen = [2]int16{5, 7}
+
+	queenKingTropism  = [2]int16{2, 4}
+	passedKingTropism = [2]int16{2, 4}
 )
 
 var PieceValue = [...]int16{0, pawnVal, knightVal, bishopVal, rookVal, queenVal, kingVal}
@@ -32,7 +35,14 @@ var PieceValue = [...]int16{0, pawnVal, knightVal, bishopVal, rookVal, queenVal,
 // How much to increment the game phase counter for each piece type.
 var gamePhaseInc = [...]int16{0, 1, 1, 2, 4, 0}
 
+// Eval statically evaluates the current position. Eval is unreliable in loud positions.
+// Should only be called at the end of quiescence search.
 func Eval(board *dragon.Board) int16 {
+	// TODO: refactor this to be more feature/weight driven. It's difficult to manage all of
+	// the weights and we could reduce the amount of redundant code required for tapered
+	// eval. Should also explore updating this incrementally on each move, as 99% of the
+	// eval doesn't change between moves.
+
 	// Game phase is incremented for each piece.
 	var phase int16
 
@@ -69,10 +79,18 @@ func Eval(board *dragon.Board) int16 {
 			if bitboard.PassedMask[color][square]&pieces[other(color)].Pawns == 0 {
 				rank := bitboard.Rank(square)
 				if color == 1 {
-					rank = 8 - rank
+					rank = 7 - rank
 				}
-				mgScore[color] += passedPawn[rank]
-				egScore[color] += passedPawn[rank]
+				ourKing := bits.TrailingZeros64(pieces[color].Kings)
+				enemyKing := bits.TrailingZeros64(pieces[other(color)].Kings)
+
+				ourKingDistance := int16(bitboard.Distance[square][ourKing])
+				enemyKingDistance := int16(bitboard.Distance[square][enemyKing])
+
+				distanceScore := 2*enemyKingDistance - ourKingDistance
+
+				mgScore[color] += passedPawn[rank] + distanceScore*passedKingTropism[0]
+				egScore[color] += passedPawn[rank] + distanceScore*passedKingTropism[1]
 			}
 			// Isolated pawn penalty.
 			if bitboard.AdjacentMask[square]&pieces[color].Pawns == 0 {
@@ -89,6 +107,11 @@ func Eval(board *dragon.Board) int16 {
 				mgScore[color] += rookSemiOpen[0]
 				egScore[color] += rookSemiOpen[1]
 			}
+		case dragon.Queen:
+			enemyKing := bits.TrailingZeros64(pieces[other(color)].Kings)
+			distanceToKing := int16(7 - bitboard.Distance[square][enemyKing]) // Closer is better.
+			mgScore[color] += distanceToKing * queenKingTropism[0]
+			egScore[color] += distanceToKing * queenKingTropism[1]
 		case dragon.King:
 			// King-safety.
 			pawnsOnFile := (board.White.Pawns | board.Black.Pawns) & bitboard.FileMask[square]
@@ -145,7 +168,7 @@ func pieceEval(b *dragon.Bitboards) int16 {
 	return int16(score)
 }
 
-func badCapture(attacker, victim int16) bool {
+func badCapture(attacker, victim int) bool {
 	// Pawn captures don't lose material.
 	if attacker == dragon.Pawn {
 		return false

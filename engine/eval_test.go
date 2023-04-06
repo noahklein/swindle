@@ -19,33 +19,33 @@ func TestEval(t *testing.T) {
 		},
 		{
 			name:  "doubled-passed pawns on 2nd and 3rd rank",
-			board: dragon.ParseFen("8/8/8/8/8/P7/P7/8 w - - 0 1"),
-			want:  217,
+			board: dragon.ParseFen("8/k7/8/8/K7/P7/P7/8 w - - 0 1"),
+			want:  258,
 		},
 		{
 			name:  "passed pawns on 2nd rank",
-			board: dragon.ParseFen("8/8/8/8/8/8/PP7/8 w - - 0 1"),
-			want:  221,
+			board: dragon.ParseFen("k7/8/8/8/8/8/PPK5/8 w - - 0 1"),
+			want:  304,
 		},
 		{
 			name:  "2 passed pawns on 4th rank",
-			board: dragon.ParseFen("8/8/8/8/PP6/8/8/8 w - - 0 1"),
-			want:  302,
+			board: dragon.ParseFen("k7/8/8/8/PPK5/8/8/8 w - - 0 1"),
+			want:  370,
 		},
 		{
 			name:  "2 passed pawns on 5th rank",
-			board: dragon.ParseFen("8/8/8/PP6/8/8/8/8 w - - 0 1"),
-			want:  379,
+			board: dragon.ParseFen("k7/8/8/PPK5/8/8/8/8 w - - 0 1"),
+			want:  441,
 		},
 		{
 			name:  "2 black passed pawns on 5th rank",
-			board: dragon.ParseFen("8/8/8/pp6/8/8/8/8 b - - 0 1"),
-			want:  301,
+			board: dragon.ParseFen("K7/8/8/ppk5/8/8/8/8 b - - 0 1"),
+			want:  306,
 		},
 		{
 			name:  "2 black passed pawns on 4th rank",
-			board: dragon.ParseFen("8/8/8/8/pp6/8/8/8 w - - 0 1"),
-			want:  -379,
+			board: dragon.ParseFen("K7/8/8/8/ppk5/8/8/8 w - - 0 1"),
+			want:  -407,
 		},
 		// Messy positions
 		{
@@ -56,7 +56,7 @@ func TestEval(t *testing.T) {
 		{
 			name:  "down a knight, pawn, and rook; black has 2 queens",
 			board: dragon.ParseFen("r1bqkbnr/ppp1pppp/2n5/8/2BP4/8/PPP2P1P/RNBQK2q w Qkq - 0 1"),
-			want:  -1849,
+			want:  -1857,
 		},
 	}
 

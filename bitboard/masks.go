@@ -42,6 +42,8 @@ var (
 	AdjacentMask [64]uint64
 	// [White, Black]
 	PassedMask [2][64]uint64
+
+	Distance [64][64]uint8
 )
 
 func init() {
@@ -57,6 +59,11 @@ func init() {
 
 		down := DownFill(1<<sq) & ^ranks[rank]
 		PassedMask[1][sq] = Left(down) | down | Right(down)
+
+		for otherSq := uint8(0); otherSq < 64; otherSq++ {
+			otherRank, otherFile := Rank(otherSq), File(otherSq)
+			Distance[sq][otherSq] = max(absDelta(rank, otherRank), absDelta(file, otherFile))
+		}
 	}
 
 	// diagnose(42)
@@ -71,4 +78,19 @@ func diagnose(sq int) {
 	fmt.Println("Passed", String(PassedMask[0][sq]))
 	fmt.Println("Passed", String(PassedMask[1][sq]))
 	fmt.Println("Adjacent", String(AdjacentMask[sq]))
+}
+
+// Prevent uint8 underflow.
+func absDelta(a, b uint8) uint8 {
+	if a > b {
+		return a - b
+	}
+	return b - a
+}
+
+func max(a, b uint8) uint8 {
+	if a > b {
+		return a
+	}
+	return b
 }
